@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ride Planner · cabrils</title>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<style>
+  :root {
+    --verde: #2e9e4f;
+    --azul: #1f6fd1;
+    --rojo: #d62f2f;
+    --negro: #1a1a1a;
+    --gris: #9e9e9e;
+    --bg: #f7f8fa;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #app { display: flex; height: 100%; }
+  #mapwrap { flex: 1; position: relative; }
+  #map { position: absolute; inset: 0; }
+  #panel {
+    width: 360px; background: var(--bg); border-left: 1px solid #e0e0e0;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  #panel header { padding: 16px; background: #fff; border-bottom: 1px solid #e0e0e0; }
+  #panel h1 { font-size: 18px; margin: 0 0 4px; }
+  #panel .sub { font-size: 12px; color: #777; }
+  #filtros {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    padding: 12px 16px; background: #fff; border-bottom: 1px solid #e0e0e0;
+  }
+  .chip {
+    border: 1px solid #ccc; background: #fff; border-radius: 999px;
+    padding: 4px 10px; font-size: 12px; cursor: pointer; user-select: none;
+  }
+  .chip.active { background: #2c3e50; color: #fff; border-color: #2c3e50; }
+  .chip .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+  #lista { flex: 1; overflow-y: auto; padding: 8px; min-height: 120px; }
+  .card {
+    background: #fff; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px;
+    cursor: pointer; border: 1px solid #e6e6e6; transition: border-color .15s;
+  }
+  .card:hover { border-color: #2c3e50; }
+  .card.sel { border-color: #2c3e50; box-shadow: 0 0 0 2px rgba(44,62,80,.15); }
+  .card .nom { font-weight: 600; font-size: 14px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+  .card .nom .txt { flex: 1; }
+  .card .meta { font-size: 12px; color: #666; display: flex; gap: 10px; flex-wrap: wrap; }
+  .badge {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
+    padding: 1px 6px; border-radius: 4px; background: #ecf0f1; color: #555; font-weight: 500;
+  }
+  .badge.osm { background: #e8f5e9; color: #2e7d32; }
+  .badge.det { background: #fff3e0; color: #e65100; }
+  .btn-add {
+    flex: none; border: 1px solid #ccc; background: #fff; border-radius: 50%;
+    width: 24px; height: 24px; cursor: pointer; font-size: 14px; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center; color: #333; padding: 0;
+  }
+  .btn-add:hover { border-color: #2c3e50; }
+  .btn-add.in { background: #2c3e50; color: #fff; border-color: #2c3e50; }
+  .popup-add {
+    margin-top: 8px; width: 100%; padding: 6px;
+    border: 1px solid #ccc; background: #fff; border-radius: 6px;
+    cursor: pointer; font-size: 13px;
+  }
+  .popup-add:hover { border-color: #2c3e50; }
+  .popup-add.in { background: #2c3e50; color: #fff; border-color: #2c3e50; }
+  #ficha {
+    position: absolute; bottom: 28px; left: 12px; z-index: 4; display: none;
+    width: 290px; max-width: calc(100% - 24px); max-height: calc(100% - 70px); overflow-y: auto;
+    background: #fff; padding: 12px 14px; border-radius: 8px; font-size: 13px;
+    box-shadow: 0 1px 6px rgba(0,0,0,.3);
+  }
+  #perfilAlt {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 150px; z-index: 4; display: none;
+    background: rgba(255,255,255,.96); border-top: 1px solid #d0d0d0; box-shadow: 0 -1px 6px rgba(0,0,0,.15);
+  }
+  #mapwrap.conPerfil #perfilAlt { display: block; }
+  #mapwrap.conPerfil .maplibregl-ctrl-bottom-left, #mapwrap.conPerfil .maplibregl-ctrl-bottom-right { bottom: 150px; }
+  #mapwrap.conPerfil #ficha { bottom: 162px; max-height: calc(100% - 200px); }
+  #perfilAlt .cab { display: flex; align-items: center; gap: 12px; height: 26px; padding: 0 10px 0 14px; font-size: 12px; color: #2c3e50; }
+  #perfilAlt .cab #perfilResumen { flex: none; }
+  #perfilAlt .cab #perfilInfo { flex: 1; color: #555; font-family: ui-monospace, monospace; text-align: right; white-space: nowrap; overflow: hidden; }
+  #perfilAlt .cab button { border: none; background: none; font-size: 18px; line-height: 1; color: #888; cursor: pointer; }
+  #perfilAlt .cab button:hover { color: #d62f2f; }
+  #perfilGraf { height: 124px; cursor: crosshair; }
+  #perfilGraf .vacio { padding: 30px 14px; color: #999; font-size: 12px; }
+  #ficha h3 { margin: 0 24px 6px 0; font-size: 15px; }
+  #ficha table { border-collapse: collapse; }
+  #ficha td { padding: 2px 8px 2px 0; vertical-align: top; }
+  #ficha td:first-child { color: #777; }
+  #ficha .cerrar {
+    position: absolute; top: 6px; right: 8px; border: none; background: none;
+    font-size: 20px; line-height: 1; color: #888; cursor: pointer;
+  }
+  #ficha .cerrar:hover { color: #d62f2f; }
+  .maplibregl-popup-content { padding: 12px 14px; border-radius: 8px; font-size: 13px; }
+  .maplibregl-popup-content h3 { margin: 0 0 6px; font-size: 15px; }
+  .maplibregl-popup-content table { border-collapse: collapse; }
+  .maplibregl-popup-content td { padding: 2px 8px 2px 0; vertical-align: top; }
+  .maplibregl-popup-content td:first-child { color: #777; }
+  #miRuta {
+    border-top: 1px solid #e0e0e0; background: #fff;
+    display: flex; flex-direction: column; max-height: 60%; flex: none; overflow-y: auto;
+  }
+  #miRuta > * { flex-shrink: 0; }
+  #miRutaLista { max-height: 130px; }
+  #btnDescargarMapa {
+    position: absolute; top: 12px; left: 12px; z-index: 5; display: none;
+    padding: 8px 14px; border: none; border-radius: 8px; background: #2e7d32; color: #fff;
+    font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.3);
+  }
+  #btnDescargarMapa:hover { background: #1b5e20; }
+  #miRuta header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 16px; border-bottom: 1px solid #f0f0f0;
+  }
+  #miRuta header h2 { font-size: 14px; margin: 0; }
+  #miRuta header .cont { font-size: 12px; color: #777; }
+  #miRutaLista { flex: 1; overflow-y: auto; padding: 8px; min-height: 40px; }
+  #miRutaLista .vacio { color: #999; font-size: 12px; padding: 8px; text-align: center; }
+  #miRutaLista .item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px; border-radius: 6px; margin-bottom: 4px;
+    background: #f7f8fa; font-size: 13px;
+  }
+  #miRutaLista .item .num { font-weight: 600; color: #999; width: 18px; text-align: right; flex: none; }
+  #miRutaLista .item .punto { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  #miRutaLista .item .nom { flex: 1; }
+  #miRutaLista .item .x {
+    border: none; background: none; cursor: pointer; color: #999; font-size: 16px;
+    line-height: 1; padding: 0 4px;
+  }
+  #miRutaLista .item .x:hover { color: #d62f2f; }
+  #miRuta footer {
+    padding: 8px 16px; border-top: 1px solid #f0f0f0; font-size: 12px; color: #555;
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  }
+  #miRuta footer .totales { flex: 1; line-height: 1.4; }
+  #miRuta footer .totales strong { color: #2c3e50; }
+  #bloqueRuta {
+    padding: 12px 16px; border-top: 1px solid #f0f0f0; background: #fafbfc;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  #bloqueRuta .fila { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  #bloqueRuta .fila label { color: #555; min-width: 56px; }
+  #bloqueRuta select { flex: 1; padding: 4px 6px; border-radius: 6px; border: 1px solid #ccc; font-size: 12px; }
+  #bloqueRuta .puntoRuta {
+    display: flex; align-items: center; gap: 6px; font-size: 12px;
+    background: #fff; border: 1px solid #e6e6e6; border-radius: 6px; padding: 4px 6px;
+  }
+  #bloqueRuta .puntoRuta .txt { flex: 1; color: #333; font-family: ui-monospace, monospace; }
+  #bloqueRuta .puntoRuta .txt.vacio { color: #aaa; font-family: inherit; }
+  #bloqueRuta .puntoRuta button {
+    border: 1px solid #ccc; background: #fff; border-radius: 6px; cursor: pointer;
+    font-size: 11px; padding: 2px 6px;
+  }
+  #bloqueRuta .puntoRuta button:hover { border-color: #2c3e50; }
+  #bloqueRuta .puntoRuta button.armado { background: #ffd400; border-color: #d4b000; }
+  #bloqueRuta .puntoRuta button.x { color: #d62f2f; }
+  #bloqueRuta .check { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #555; }
+  #btnGenerar {
+    width: 100%; padding: 8px; border: none; border-radius: 6px;
+    background: #2c3e50; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  #btnGenerar:hover { background: #1a252f; }
+  #btnGenerar:disabled { background: #95a5a6; cursor: not-allowed; }
+  #btnDescargarGPX {
+    width: 100%; padding: 8px; border: none; border-radius: 6px;
+    background: #2e7d32; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  #btnDescargarGPX:hover { background: #1b5e20; }
+  #btnDescargarGPX:disabled { background: #95a5a6; cursor: not-allowed; }
+  #btnBorrarTodo {
+    width: 100%; padding: 6px; border: 1px solid #d62f2f; border-radius: 6px;
+    background: #fff; color: #d62f2f; font-size: 12px; cursor: pointer;
+  }
+  #btnBorrarTodo:hover { background: #d62f2f; color: #fff; }
+  #resumenRuta { font-size: 12px; color: #2c3e50; line-height: 1.5; }
+  #resumenRuta:empty { display: none; }
+  #resumenRuta .sw { display: inline-block; width: 14px; height: 4px; border-radius: 2px; vertical-align: middle; margin: 0 3px 1px 6px; }
+  #estadoRuta { font-size: 11px; color: #777; min-height: 14px; text-align: center; }
+  @media (max-width: 720px) {
+    #app { flex-direction: column; }
+    #mapwrap { flex: none; height: 45%; }
+    #panel { width: 100%; height: 55%; border-left: none; border-top: 1px solid #e0e0e0; }
+    #miRuta { max-height: 45%; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="mapwrap">
+    <div id="map"></div>
+    <button id="btnDescargarMapa">⬇ Descargar GPX</button>
+    <div id="ficha"></div>
+    <div id="perfilAlt">
+      <div class="cab"><span id="perfilResumen"></span><span id="perfilInfo"></span><button id="perfilCerrar" title="Ocultar perfil">×</button></div>
+      <div id="perfilGraf"></div>
+    </div>
+  </div>
+  <aside id="panel">
+    <header>
+      <h1>Ride Planner · cabrils</h1>
+      <div class="sub" id="contador">Cargando…</div>
+    </header>
+    <div id="filtros">
+      <button class="chip active" data-filtro="todas">Todas</button>
+      <button class="chip active" data-color="verde"><span class="dot" style="background:var(--verde)"></span>Verde</button>
+      <button class="chip active" data-color="azul"><span class="dot" style="background:var(--azul)"></span>Azul</button>
+      <button class="chip active" data-color="rojo"><span class="dot" style="background:var(--rojo)"></span>Rojo</button>
+      <button class="chip active" data-color="negro"><span class="dot" style="background:var(--negro)"></span>Negro</button>
+      <button class="chip active" data-color="sin"><span class="dot" style="background:var(--gris)"></span>Sin dif.</button>
+      <button class="chip" data-solo="osm">Con nombre y dificultad</button>
+    </div>
+    <div id="lista"></div>
+
+    <div id="miRuta">
+      <header>
+        <h2>Mi ruta</h2>
+        <span class="cont" id="miRutaContador">0 bajadas</span>
+      </header>
+      <div id="miRutaLista"></div>
+      <footer>
+        <div class="totales" id="miRutaTotales">—</div>
+        <button class="chip" id="limpiarRuta">Vaciar</button>
+      </footer>
+      <div id="bloqueRuta">
+        <div class="fila">
+          <label for="perfil">Perfil</label>
+          <select id="perfil">
+            <option value="mtb">MTB</option>
+            <option value="trekking">Trekking</option>
+            <option value="fastbike">Fastbike</option>
+            <option value="safety">Safety</option>
+          </select>
+        </div>
+        <div class="puntoRuta" id="filaInicio">
+          <span class="txt vacio" id="txtInicio">Sin punto de inicio</span>
+          <button id="btnMarcarInicio" title="Clic en el mapa">Marcar</button>
+          <button id="btnUbicacionInicio" title="Usar mi ubicación">📍</button>
+          <button id="btnBorrarInicio" class="x" title="Borrar">×</button>
+        </div>
+        <div class="check">
+          <input type="checkbox" id="volverInicio" checked />
+          <label for="volverInicio">Volver al inicio (ruta circular)</label>
+        </div>
+        <div class="puntoRuta" id="filaFin" style="display:none">
+          <span class="txt vacio" id="txtFin">Sin punto de fin</span>
+          <button id="btnMarcarFin" title="Clic en el mapa">Marcar</button>
+          <button id="btnUbicacionFin" title="Usar mi ubicación">📍</button>
+          <button id="btnBorrarFin" class="x" title="Borrar">×</button>
+        </div>
+        <button id="btnGenerar" disabled>Generar ruta</button>
+        <div id="resumenRuta"></div>
+        <button id="btnDescargarGPX" disabled>Descargar GPX</button>
+        <div id="estadoRuta"></div>
+        <button id="btnBorrarTodo" title="Quita bajadas, inicio, fin y ruta generada">Empezar de cero</button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="ruta.js"></script>
+<script>
+const COLORES = { verde: "#2e9e4f", azul: "#1f6fd1", rojo: "#d62f2f", negro: "#1a1a1a", sin: "#9e9e9e" };
+const CATS = ["verde", "azul", "rojo", "negro", "sin"];
+
+const map = new maplibregl.Map({
+  container: "map",
+  style: {
+    version: 8,
+    sources: { osm: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, attribution: "© OpenStreetMap contributors" } },
+    layers: [{ id: "osm", type: "raster", source: "osm" }]
+  },
+  center: [2.33, 41.52],
+  zoom: 12
+});
+
+map.addControl(new maplibregl.NavigationControl(), "top-right");
+map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-right");
+
+let features = [];
+const porId = new Map();
+const activos = { color: new Set(CATS), soloOsm: false };
+let seleccionada = null;
+
+const STORAGE_KEY = "miRuta_v1";
+const STORAGE_INICIO = "miRuta_inicio_v1";
+const STORAGE_FIN = "miRuta_fin_v1";
+let miRuta = [];
+let puntoInicio = null;
+let puntoFin = null;
+let modoMarcar = null;
+let markerInicio = null;
+let markerFin = null;
+let rutaGenerada = null;   // { gpx, segmentos, stats } de la última ruta calculada
+let perfilDatos = null, perfilGeom = null, markerPerfil = null;
+let versionRuta = 0;       // sube con cada cambio; descarta cálculos que ya no valen
+const COLOR_RUTA = "#7b1fa2"; // enlaces y contorno de las bajadas de la ruta
+
+function cargarMiRutaGuardado() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) { const ids = JSON.parse(raw); if (Array.isArray(ids)) miRuta = ids.filter(id => porId.has(id)); }
+    const ri = localStorage.getItem(STORAGE_INICIO); if (ri) puntoInicio = JSON.parse(ri);
+    const rf = localStorage.getItem(STORAGE_FIN); if (rf) puntoFin = JSON.parse(rf);
+  } catch (e) {}
+}
+function guardarMiRuta() { invalidarRuta(); try { localStorage.setItem(STORAGE_KEY, JSON.stringify(miRuta)); } catch (e) {} }
+function guardarPuntos() {
+  invalidarRuta();
+  try {
+    if (puntoInicio) localStorage.setItem(STORAGE_INICIO, JSON.stringify(puntoInicio)); else localStorage.removeItem(STORAGE_INICIO);
+    if (puntoFin) localStorage.setItem(STORAGE_FIN, JSON.stringify(puntoFin)); else localStorage.removeItem(STORAGE_FIN);
+  } catch (e) {}
+}
+function estaEnRuta(id) { return miRuta.includes(id); }
+function toggleRuta(id) {
+  const i = miRuta.indexOf(id);
+  if (i >= 0) miRuta.splice(i, 1); else miRuta.push(id);
+  guardarMiRuta(); renderMiRuta(); actualizarBotonesRuta(); actualizarPopupBoton(); actualizarBotonGenerar();
+}
+
+function renderMiRuta() {
+  const cont = document.getElementById("miRutaLista");
+  cont.innerHTML = "";
+  let longTotal = 0, caidaTotal = 0;
+  if (miRuta.length === 0) {
+    const v = document.createElement("div"); v.className = "vacio"; v.textContent = "Añade bajadas con el botón ＋"; cont.appendChild(v);
+  } else {
+    miRuta.forEach((id, i) => {
+      const f = porId.get(id); if (!f) return;
+      const p = f.properties;
+      longTotal += p.longitud_m || 0; caidaTotal += p.caida_m || 0;
+      const el = document.createElement("div"); el.className = "item";
+      el.innerHTML = `<span class="num">${i + 1}</span><span class="punto" style="background:${colorDe(p)}"></span><span class="nom">${esc(p.nombre || "(sin nombre)")}</span><button class="x" title="Quitar">×</button>`;
+      el.querySelector(".x").addEventListener("click", (ev) => { ev.stopPropagation(); toggleRuta(id); });
+      el.addEventListener("click", () => seleccionar(id, { fit: true }));
+      cont.appendChild(el);
+    });
+  }
+  document.getElementById("miRutaContador").textContent = `${miRuta.length} bajada${miRuta.length === 1 ? "" : "s"}`;
+  document.getElementById("miRutaTotales").innerHTML = miRuta.length === 0 ? "—"
+    : `Bajadas: <strong>${fmtLong(Math.round(longTotal))}</strong><br>Caída: <strong>↓${Math.round(caidaTotal)} m</strong>`;
+}
+
+function actualizarBotonesRuta() {
+  document.querySelectorAll(".btn-add").forEach(btn => {
+    const dentro = estaEnRuta(btn.dataset.id);
+    btn.classList.toggle("in", dentro);
+    btn.textContent = dentro ? "✓" : "＋";
+    btn.title = dentro ? "Quitar de mi ruta" : "Añadir a mi ruta";
+  });
+}
+function actualizarPopupBoton() {
+  const btn = document.getElementById("popupAdd"); if (!btn) return;
+  const dentro = estaEnRuta(btn.dataset.id);
+  btn.classList.toggle("in", dentro);
+  btn.textContent = dentro ? "✓ Quitar de mi ruta" : "＋ Añadir a mi ruta";
+}
+document.getElementById("limpiarRuta").addEventListener("click", () => {
+  miRuta.length = 0; guardarMiRuta(); renderMiRuta(); actualizarBotonesRuta(); actualizarPopupBoton(); actualizarBotonGenerar();
+});
+
+function actualizarUIPuntos() {
+  const tIni = document.getElementById("txtInicio");
+  if (puntoInicio) { tIni.textContent = `${puntoInicio[0].toFixed(5)}, ${puntoInicio[1].toFixed(5)}`; tIni.classList.remove("vacio"); }
+  else { tIni.textContent = "Sin punto de inicio"; tIni.classList.add("vacio"); }
+  const tFin = document.getElementById("txtFin");
+  if (puntoFin) { tFin.textContent = `${puntoFin[0].toFixed(5)}, ${puntoFin[1].toFixed(5)}`; tFin.classList.remove("vacio"); }
+  else { tFin.textContent = "Sin punto de fin"; tFin.classList.add("vacio"); }
+  const volver = document.getElementById("volverInicio").checked;
+  document.getElementById("filaFin").style.display = volver ? "none" : "flex";
+  if (markerInicio) { markerInicio.remove(); markerInicio = null; }
+  if (markerFin) { markerFin.remove(); markerFin = null; }
+  if (puntoInicio) markerInicio = new maplibregl.Marker({ color: "#2e7d32" }).setLngLat([puntoInicio[1], puntoInicio[0]]).addTo(map);
+  if (puntoFin && !volver) markerFin = new maplibregl.Marker({ color: "#d62f2f" }).setLngLat([puntoFin[1], puntoFin[0]]).addTo(map);
+  actualizarBotonGenerar();
+}
+function actualizarBotonGenerar() { document.getElementById("btnGenerar").disabled = miRuta.length === 0; }
+document.getElementById("volverInicio").addEventListener("change", () => { invalidarRuta(); actualizarUIPuntos(); });
+document.getElementById("perfil").addEventListener("change", () => invalidarRuta());
+
+function armarModo(cual) {
+  modoMarcar = (modoMarcar === cual) ? null : cual;
+  document.getElementById("btnMarcarInicio").classList.toggle("armado", modoMarcar === "inicio");
+  document.getElementById("btnMarcarFin").classList.toggle("armado", modoMarcar === "fin");
+  document.getElementById("estadoRuta").textContent = modoMarcar
+    ? `Haz clic en el mapa para marcar el ${modoMarcar === "inicio" ? "inicio" : "fin"}` : "";
+  map.getCanvas().style.cursor = modoMarcar ? "crosshair" : "";
+}
+document.getElementById("btnMarcarInicio").addEventListener("click", () => armarModo("inicio"));
+document.getElementById("btnMarcarFin").addEventListener("click", () => armarModo("fin"));
+document.getElementById("btnBorrarInicio").addEventListener("click", () => { puntoInicio = null; guardarPuntos(); actualizarUIPuntos(); });
+document.getElementById("btnBorrarFin").addEventListener("click", () => { puntoFin = null; guardarPuntos(); actualizarUIPuntos(); });
+
+function usarUbicacion(cual) {
+  if (!navigator.geolocation) { alert("Tu navegador no soporta geolocalización."); return; }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const lat = pos.coords.latitude, lon = pos.coords.longitude;
+      if (cual === "inicio") puntoInicio = [lat, lon]; else puntoFin = [lat, lon];
+      guardarPuntos(); actualizarUIPuntos();
+    },
+    (err) => alert("No se pudo obtener la ubicación: " + err.message),
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+document.getElementById("btnUbicacionInicio").addEventListener("click", () => usarUbicacion("inicio"));
+document.getElementById("btnUbicacionFin").addEventListener("click", () => usarUbicacion("fin"));
+
+map.on("click", (e) => {
+  if (!modoMarcar) return;
+  const lat = e.lngLat.lat, lon = e.lngLat.lng;
+  if (modoMarcar === "inicio") puntoInicio = [lat, lon]; else puntoFin = [lat, lon];
+  guardarPuntos(); armarModo(modoMarcar); actualizarUIPuntos();
+});
+
+function esc(t) { return String(t ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+const idDe = f => f.properties.id;
+const catDe = p => p.dificultad_color || "sin";
+const colorDe = p => COLORES[catDe(p)];
+function fmtLong(m) { return m >= 1000 ? (m / 1000).toFixed(2).replace(".", ",") + " km" : m + " m"; }
+async function fetchJson(url) { const r = await fetch(url); if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`); return r.json(); }
+function badgeFiab(p) { return p.fiabilidad === "osm" ? `<span class="badge osm">OSM</span>` : `<span class="badge det">detectada</span>`; }
+
+map.on("load", async () => {
+  try {
+    const [bj, tr] = await Promise.all([fetchJson("bajadas.geojson"), fetchJson("tramos.geojson")]);
+    features = bj.features.filter(f => f.properties.es_bajada);
+    features.forEach(f => { const p = f.properties; p._cat = catDe(p); p._osm = p.fiabilidad === "osm"; porId.set(idDe(f), f); });
+    tr.features = tr.features.filter(t => porId.has(t.properties.bajada_id));
+    tr.features.forEach(t => { const b = porId.get(t.properties.bajada_id).properties; t.properties._cat = b._cat; t.properties._osm = b._osm; });
+    await cargarCapas(tr);
+    cargarLista();
+    cargarMiRutaGuardado(); renderMiRuta(); actualizarBotonesRuta(); actualizarUIPuntos();
+    ajustarVista();
+  } catch (e) {
+    document.getElementById("contador").textContent = "No se pudieron cargar bajadas.geojson y tramos.geojson. Ábrelos con un servidor local (python -m http.server) y ejecuta antes detectar_bajadas.py.";
+    console.error(e);
+  }
+});
+
+function cargarIcono(nombre, color) {
+  return new Promise((resolve) => {
+    if (map.hasImage(nombre)) return resolve();
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect x="5" y="5" width="22" height="22" rx="2" fill="${color}" stroke="#ffffff" stroke-width="3"/></svg>`;
+    const img = new Image(32, 32);
+    img.onload = () => { if (!map.hasImage(nombre)) map.addImage(nombre, img); resolve(); };
+    img.onerror = () => resolve();
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  });
+}
+
+async function cargarCapas(tramos) {
+  map.addSource("tramos", { type: "geojson", data: tramos });
+  map.addLayer({ id: "tramos-halo", type: "line", source: "tramos", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": 8, "line-opacity": 0.6 } });
+  map.addLayer({ id: "tramos-sel", type: "line", source: "tramos", filter: ["==", ["get", "bajada_id"], ""], layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffd400", "line-opacity": 0.9, "line-width": ["interpolate", ["linear"], ["zoom"], 10, 6, 14, 10, 17, 14] } });
+  map.addLayer({ id: "tramos-line", type: "line", source: "tramos", layout: { "line-cap": "butt", "line-join": "round" }, paint: { "line-color": ["get", "stroke"], "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2, 14, 4, 17, 7] } });
+
+  const puntos = { type: "FeatureCollection", features: [] };
+  features.forEach(f => {
+    const p = f.properties; const c = f.geometry.coordinates;
+    const ini = p.inicio || c[0].slice(0, 2); const fin = p.fin || c[c.length - 1].slice(0, 2);
+    const base = { _cat: p._cat, _osm: p._osm, _color: colorDe(p), bajada_id: idDe(f) };
+    puntos.features.push({ type: "Feature", geometry: { type: "Point", coordinates: ini }, properties: { ...base, tipo: "inicio" } });
+    puntos.features.push({ type: "Feature", geometry: { type: "Point", coordinates: fin }, properties: { ...base, tipo: "final" } });
+  });
+  map.addSource("puntos", { type: "geojson", data: puntos });
+  map.addLayer({ id: "puntos-inicio", type: "circle", source: "puntos", filter: ["==", ["get", "tipo"], "inicio"], paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 4, 16, 8], "circle-color": "#ffffff", "circle-stroke-color": ["get", "_color"], "circle-stroke-width": 2.5 } });
+  await Promise.all(CATS.map(c => cargarIcono("cuadrado-" + c, COLORES[c])));
+  map.addLayer({ id: "puntos-final", type: "symbol", source: "puntos", filter: ["==", ["get", "tipo"], "final"], layout: { "icon-image": ["concat", "cuadrado-", ["get", "_cat"]], "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.3, 14, 0.45, 17, 0.65], "icon-allow-overlap": true, "icon-ignore-placement": true } });
+
+  crearFlecha();
+  map.addSource("sel-flechas", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  map.addLayer({ id: "sel-flechas", type: "symbol", source: "sel-flechas", layout: { "symbol-placement": "line", "symbol-spacing": 55,
+    "icon-image": "flecha-ruta", "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.35, 14, 0.5, 17, 0.7],
+    "icon-rotation-alignment": "map", "icon-allow-overlap": true, "icon-ignore-placement": true } }, "puntos-inicio");
+
+  aplicarFiltrosMapa();
+  const clic = (e) => { if (modoMarcar) return; const id = e.features[0].properties.bajada_id; seleccionar(id, { lngLat: e.lngLat }); };
+  map.on("click", "tramos-line", clic);
+  map.on("click", "puntos-inicio", clic);
+  map.on("click", "puntos-final", clic);
+  ["tramos-line", "puntos-inicio", "puntos-final"].forEach(layer => {
+    map.on("mouseenter", layer, () => map.getCanvas().style.cursor = "pointer");
+    map.on("mouseleave", layer, () => map.getCanvas().style.cursor = "");
+  });
+}
+
+function seleccionar(id, opts = {}) {
+  const f = porId.get(id); if (!f) return;
+  seleccionada = id;
+  map.setFilter("tramos-sel", ["==", ["get", "bajada_id"], id]);
+  const sf = map.getSource("sel-flechas");
+  if (sf) sf.setData({ type: "Feature", properties: {}, geometry: f.geometry });
+  resaltarEnLista(id);
+  if (opts.fit) { const b = new maplibregl.LngLatBounds(); f.geometry.coordinates.forEach(c => b.extend([c[0], c[1]])); map.fitBounds(b, { padding: 80, duration: 600 }); }
+  const p = f.properties; const lngLat = opts.lngLat || { lng: p.inicio[0], lat: p.inicio[1] };
+  mostrarPopup(f, lngLat);
+}
+
+function mostrarPopup(f, lngLat) {
+  const p = f.properties; const color = colorDe(p);
+  let dif = p.dificultad_color ? `<span style="color:${color};font-weight:600">${esc(p.dificultad_color)}</span>` : `<span style="color:#95a5a6">sin dificultad en OSM</span>`;
+  const det = p.dificultad_detalle_m || {};
+  if (Object.keys(det).length > 1) {
+    const partes = Object.entries(det).sort((a, b) => b[1] - a[1]).map(([c, m]) => `${esc(c)} ${m} m`).join(" · ");
+    dif += `<br><span style="color:#777;font-size:12px">${partes}</span>`;
+  }
+  const fila = (k, v) => (v === null || v === undefined || v === "") ? "" : `<tr><td>${k}</td><td>${v}</td></tr>`;
+  const id = idDe(f);
+  const dentro = estaEnRuta(id);
+
+  const ficha = document.getElementById("ficha");
+  ficha.innerHTML = `
+      <button class="cerrar" title="Cerrar">×</button>
+      <h3>${esc(p.nombre || "(sin nombre)")} ${badgeFiab(p)}</h3>
+      <table>
+        ${fila("Dificultad", dif)}
+        ${fila("Longitud", fmtLong(p.longitud_m))}
+        ${fila("Caída", p.caida_m + " m")}
+        ${fila("Pend. media", p.pendiente_media_pct + " %")}
+        ${fila("Pend. máx 100 m", p.pendiente_max_100m_pct + " %")}
+        ${fila("Tipo", esc(p.mtb_type))}
+        ${fila("Superficie", esc(p.surface))}
+        ${fila("Tramos OSM", p.n_tramos)}
+      </table>
+      <button class="popup-add ${dentro ? "in" : ""}" id="popupAdd" data-id="${id}">
+        ${dentro ? "✓ Quitar de mi ruta" : "＋ Añadir a mi ruta"}
+      </button>`;
+  ficha.style.display = "block";
+  ficha.scrollTop = 0;
+  ficha.querySelector(".cerrar").addEventListener("click", deseleccionar);
+  document.getElementById("popupAdd").addEventListener("click", (ev) => { ev.stopPropagation(); toggleRuta(id); });
+}
+
+function deseleccionar() {
+  seleccionada = null;
+  document.getElementById("ficha").style.display = "none";
+  if (map.getLayer("tramos-sel")) map.setFilter("tramos-sel", ["==", ["get", "bajada_id"], ""]);
+  const src = map.getSource("sel-flechas");
+  if (src) src.setData({ type: "FeatureCollection", features: [] });
+  document.querySelectorAll(".card.sel").forEach(c => c.classList.remove("sel"));
+}
+
+function pasaFiltros(f) {
+  const p = f.properties;
+  return activos.color.has(p._cat) && (!activos.soloOsm || p._osm);
+}
+
+function cargarLista() {
+  const cont = document.getElementById("lista");
+  cont.innerHTML = "";
+  const visibles = features.filter(pasaFiltros).sort((a, b) => b.properties.longitud_m - a.properties.longitud_m);
+  document.getElementById("contador").textContent = `${visibles.length} de ${features.length} bajadas`;
+
+  visibles.forEach(f => {
+    const p = f.properties;
+    const color = colorDe(p);
+    const id = idDe(f);
+    const dentro = estaEnRuta(id);
+    const el = document.createElement("div");
+    el.className = "card" + (id === seleccionada ? " sel" : "");
+    el.dataset.id = id;
+    el.innerHTML = `
+      <div class="nom" style="border-left:4px solid ${color};padding-left:8px">
+        <span class="txt">${esc(p.nombre || "(sin nombre)")} ${badgeFiab(p)}</span>
+        <button class="btn-add ${dentro ? "in" : ""}" data-id="${id}" title="${dentro ? "Quitar de mi ruta" : "Añadir a mi ruta"}">${dentro ? "✓" : "＋"}</button>
+      </div>
+      <div class="meta">
+        <span>${fmtLong(p.longitud_m)}</span>
+        <span>↓${p.caida_m} m</span>
+        <span>${p.pendiente_media_pct} %</span>
+        ${p.dificultad_color ? `<span style="color:${color}">${esc(p.dificultad_color)}</span>` : ""}
+      </div>
+    `;
+    el.querySelector(".btn-add").addEventListener("click", (ev) => { ev.stopPropagation(); toggleRuta(id); });
+    el.addEventListener("click", () => seleccionar(id, { fit: true }));
+    cont.appendChild(el);
+  });
+
+  actualizarBotonesRuta();
+}
+
+function resaltarEnLista(id) {
+  document.querySelectorAll(".card.sel").forEach(c => c.classList.remove("sel"));
+  const el = document.querySelector(`.card[data-id="${id}"]`);
+  if (el) { el.classList.add("sel"); el.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
+}
+
+function ajustarVista() {
+  const b = new maplibregl.LngLatBounds();
+  features.forEach(f => f.geometry.coordinates.forEach(c => b.extend([c[0], c[1]])));
+  if (!b.isEmpty()) map.fitBounds(b, { padding: 60, duration: 0 });
+}
+
+function aplicarFiltrosMapa() {
+  const base = [["in", ["get", "_cat"], ["literal", [...activos.color]]]];
+  if (activos.soloOsm) base.push(["==", ["get", "_osm"], true]);
+  ["tramos-halo", "tramos-line"].forEach(id => {
+    if (map.getLayer(id)) map.setFilter(id, ["all", ...base]);
+  });
+  if (map.getLayer("puntos-inicio")) map.setFilter("puntos-inicio", ["all", ...base, ["==", ["get", "tipo"], "inicio"]]);
+  if (map.getLayer("puntos-final")) map.setFilter("puntos-final", ["all", ...base, ["==", ["get", "tipo"], "final"]]);
+}
+
+document.querySelectorAll("#filtros .chip").forEach(chip => {
+  chip.addEventListener("click", () => {
+    const todas = document.querySelector('#filtros .chip[data-filtro="todas"]');
+    if (chip.dataset.filtro === "todas") {
+      const algunoInactivo = activos.color.size < CATS.length;
+      activos.color = new Set(algunoInactivo ? CATS : []);
+      document.querySelectorAll("#filtros .chip[data-color]").forEach(c => c.classList.toggle("active", algunoInactivo));
+    } else if (chip.dataset.color) {
+      const k = chip.dataset.color;
+      chip.classList.toggle("active");
+      if (chip.classList.contains("active")) activos.color.add(k); else activos.color.delete(k);
+    } else if (chip.dataset.solo) {
+      chip.classList.toggle("active");
+      activos.soloOsm = chip.classList.contains("active");
+    }
+    todas.classList.toggle("active", activos.color.size === CATS.length);
+    aplicarFiltrosMapa();
+    cargarLista();
+  });
+});
+
+// ---- Ruta generada: dibujar, invalidar, descargar, borrar todo ----
+function crearFlecha() {
+  if (map.hasImage("flecha-ruta")) return;
+  const s = 32, c = document.createElement("canvas"); c.width = c.height = s;
+  const g = c.getContext("2d");
+  g.beginPath(); g.moveTo(6, 6); g.lineTo(27, 16); g.lineTo(6, 26); g.lineTo(12, 16); g.closePath();
+  g.lineJoin = "round"; g.lineWidth = 3; g.strokeStyle = "#1a1a1a"; g.stroke();
+  g.fillStyle = "#ffffff"; g.fill();
+  map.addImage("flecha-ruta", g.getImageData(0, 0, s, s));
+}
+
+function dibujarRuta(segmentos) {
+  const feats = [];
+  let prev = null;
+  for (const s of segmentos) {
+    const coords = s.puntos.map(p => [p[1], p[0]]);
+    if (prev) coords.unshift(prev); // une con el segmento anterior sin huecos
+    prev = coords[coords.length - 1];
+    if (coords.length > 1) feats.push({ type: "Feature", properties: { tipo: s.tipo, nombre: s.nombre }, geometry: { type: "LineString", coordinates: coords } });
+  }
+  const data = { type: "FeatureCollection", features: feats };
+  if (map.getSource("ruta-generada")) {
+    map.getSource("ruta-generada").setData(data);
+  } else {
+    crearFlecha();
+    const esBajada = ["==", ["get", "tipo"], "bajada"], esEnlace = ["==", ["get", "tipo"], "enlace"];
+    const cap = { "line-cap": "round", "line-join": "round" };
+    map.addSource("ruta-generada", { type: "geojson", data });
+    // contorno morado bajo las bajadas de la ruta (conservan su color de dificultad)
+    map.addLayer({ id: "ruta-bajadas-contorno", type: "line", source: "ruta-generada", filter: esBajada, layout: cap,
+      paint: { "line-color": COLOR_RUTA, "line-width": ["interpolate", ["linear"], ["zoom"], 10, 7, 14, 11, 17, 15] } },
+      map.getLayer("tramos-sel") ? "tramos-sel" : undefined);
+    const antes = map.getLayer("puntos-inicio") ? "puntos-inicio" : undefined;
+    // enlaces: línea morada con borde blanco
+    map.addLayer({ id: "ruta-enlaces-borde", type: "line", source: "ruta-generada", filter: esEnlace, layout: cap, paint: { "line-color": "#ffffff", "line-width": 9 } }, antes);
+    map.addLayer({ id: "ruta-enlaces", type: "line", source: "ruta-generada", filter: esEnlace, layout: cap, paint: { "line-color": COLOR_RUTA, "line-width": 5 } }, antes);
+    // flechas de sentido a lo largo de toda la ruta
+    map.addLayer({ id: "ruta-flechas", type: "symbol", source: "ruta-generada",
+      layout: { "symbol-placement": "line", "symbol-spacing": 70, "icon-image": "flecha-ruta",
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.35, 14, 0.5, 17, 0.7],
+        "icon-rotation-alignment": "map", "icon-allow-overlap": true, "icon-ignore-placement": true } });
+  }
+  const bnd = new maplibregl.LngLatBounds();
+  feats.forEach(f => f.geometry.coordinates.forEach(c => bnd.extend(c)));
+  if (!bnd.isEmpty()) map.fitBounds(bnd, { padding: 70, duration: 600 });
+}
+
+function mostrarResumenRuta(st) {
+  const km = m => fmtLong(Math.round(m));
+  let t = `<strong>${km(st.distM)}</strong>`;
+  if (st.sube !== null) t += ` · ↑${st.sube} m ↓${st.baja} m`;
+  t += `<br>Bajadas ${km(st.distBajadasM)} (contorno morado) · <span class="sw" style="background:${COLOR_RUTA};margin-left:0"></span>enlaces ${km(st.distEnlacesM)}`
+     + `<br>Las flechas ➤ marcan el sentido.`;
+  document.getElementById("resumenRuta").innerHTML = t;
+}
+
+// ---- Perfil de altimetría ----
+function construirPerfil(segmentos) {
+  const pts = [];
+  let d = 0, prev = null, eleAnt = null;
+  for (const s of segmentos) for (const p of s.puntos) {
+    if (prev) d += haversine([prev[0], prev[1]], [p[0], p[1]]);
+    prev = p;
+    const ele = (p[2] === null || p[2] === undefined) ? eleAnt : p[2];
+    if (ele !== null) eleAnt = ele;
+    pts.push({ d, ele, lat: p[0], lon: p[1], color: s.color });
+  }
+  const primero = pts.find(q => q.ele !== null);
+  pts.forEach(q => { if (q.ele === null) q.ele = primero ? primero.ele : null; });
+  if (!primero) return { pts: [], total: d };
+  const MAX = 800, paso = Math.ceil(pts.length / MAX);
+  const red = pts.filter((q, i) => i % paso === 0 || i === pts.length - 1);
+  return { pts: red, total: d };
+}
+
+function mostrarPerfil(segmentos, st) {
+  const { pts, total } = construirPerfil(segmentos);
+  perfilDatos = pts.length > 1 ? pts : null;
+  let t = `<strong>${fmtLong(Math.round(total))}</strong>`;
+  if (st.sube !== null) t += ` · ↑${st.sube} m ↓${st.baja} m`;
+  document.getElementById("perfilResumen").innerHTML = t;
+  document.getElementById("perfilInfo").textContent = "";
+  document.getElementById("mapwrap").classList.add("conPerfil");
+  dibujarPerfil();
+}
+
+function ocultarPerfil() {
+  perfilDatos = null; perfilGeom = null;
+  document.getElementById("mapwrap").classList.remove("conPerfil");
+  document.getElementById("perfilGraf").innerHTML = "";
+  if (markerPerfil) markerPerfil.getElement().style.display = "none";
+}
+
+function dibujarPerfil() {
+  const cont = document.getElementById("perfilGraf");
+  if (!perfilDatos) { cont.innerHTML = '<div class="vacio">Sin datos de altitud para dibujar el perfil.</div>'; return; }
+  const pts = perfilDatos, W = cont.clientWidth, H = cont.clientHeight;
+  if (!W || !H) return;
+  const ML = 44, MR = 12, MT = 8, MB = 18, total = pts[pts.length - 1].d || 1;
+  let lo = Infinity, hi = -Infinity;
+  pts.forEach(q => { if (q.ele < lo) lo = q.ele; if (q.ele > hi) hi = q.ele; });
+  let emin = lo, emax = hi;
+  if (emax - emin < 20) { const c = (emax + emin) / 2; emin = c - 10; emax = c + 10; }
+  const pad = (emax - emin) * 0.08; emin -= pad; emax += pad;
+  const X = d => ML + d / total * (W - ML - MR);
+  const Y = e => MT + (1 - (e - emin) / (emax - emin)) * (H - MT - MB);
+  perfilGeom = { ML, MR, W, total };
+
+  let s = `<svg width="${W}" height="${H}" style="display:block">`;
+  for (const e of [lo, (lo + hi) / 2, hi]) {
+    s += `<line x1="${ML}" x2="${W - MR}" y1="${Y(e).toFixed(1)}" y2="${Y(e).toFixed(1)}" stroke="#e3e3e3"/>`
+       + `<text x="${ML - 5}" y="${(Y(e) + 4).toFixed(1)}" text-anchor="end" font-size="10" fill="#777">${Math.round(e)} m</text>`;
+  }
+  const km = total / 1000; let paso = 0.5;
+  for (const c of [0.5, 1, 2, 5, 10, 20, 50]) { paso = c; if (km / c <= 8) break; }
+  for (let k = 0; k * paso * 1000 <= total; k++) {
+    const x = X(k * paso * 1000).toFixed(1);
+    s += `<line x1="${x}" x2="${x}" y1="${MT}" y2="${H - MB}" stroke="#f0f0f0"/>`
+       + `<text x="${x}" y="${H - 4}" text-anchor="middle" font-size="10" fill="#777">${String(k * paso).replace(".", ",")}${k === 0 ? " km" : ""}</text>`;
+  }
+  const area = pts.map(q => `${X(q.d).toFixed(1)},${Y(q.ele).toFixed(1)}`);
+  s += `<polygon points="${X(0)},${H - MB} ${area.join(" ")} ${X(total)},${H - MB}" fill="rgba(44,62,80,.10)"/>`;
+  // línea por tramos de color (bajadas con su dificultad, enlaces en morado)
+  let run = [], col = null;
+  const cierra = () => { if (run.length > 1) s += `<polyline points="${run.join(" ")}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`; };
+  pts.forEach((q, i) => {
+    const c = q.color || COLOR_RUTA, p = `${X(q.d).toFixed(1)},${Y(q.ele).toFixed(1)}`;
+    if (c !== col) { cierra(); run = i > 0 ? [`${X(pts[i - 1].d).toFixed(1)},${Y(pts[i - 1].ele).toFixed(1)}`] : []; col = c; }
+    run.push(p);
+  });
+  cierra();
+  s += `<line id="pfLinea" y1="${MT}" y2="${H - MB}" stroke="#555" stroke-dasharray="3 3" style="display:none"/>`
+     + `<circle id="pfPunto" r="4.5" fill="#fff" stroke="#1a1a1a" stroke-width="2" style="display:none"/></svg>`;
+  cont.innerHTML = s;
+  perfilGeom.X = X; perfilGeom.Y = Y;
+}
+
+function hoverPerfil(ev) {
+  if (!perfilDatos || !perfilGeom) return;
+  const cont = document.getElementById("perfilGraf"), g = perfilGeom, pts = perfilDatos;
+  const r = cont.getBoundingClientRect();
+  let d = (ev.clientX - r.left - g.ML) / (g.W - g.ML - g.MR) * g.total;
+  d = Math.max(0, Math.min(g.total, d));
+  let a = 0, b = pts.length - 1;
+  while (b - a > 1) { const m = (a + b) >> 1; if (pts[m].d < d) a = m; else b = m; }
+  const i = (d - pts[a].d < pts[b].d - d) ? a : b, q = pts[i];
+  let i0 = i, i1 = i;
+  while (i0 > 0 && q.d - pts[i0].d < 30) i0--;
+  while (i1 < pts.length - 1 && pts[i1].d - q.d < 30) i1++;
+  const dd = pts[i1].d - pts[i0].d;
+  const pend = dd > 5 ? (pts[i1].ele - pts[i0].ele) / dd * 100 : null;
+  const linea = document.getElementById("pfLinea"), punto = document.getElementById("pfPunto");
+  if (linea && punto) {
+    const x = g.X(q.d).toFixed(1);
+    linea.setAttribute("x1", x); linea.setAttribute("x2", x); linea.style.display = "";
+    punto.setAttribute("cx", x); punto.setAttribute("cy", g.Y(q.ele).toFixed(1)); punto.style.display = "";
+  }
+  document.getElementById("perfilInfo").textContent =
+    `km ${(q.d / 1000).toFixed(2).replace(".", ",")} · ${Math.round(q.ele)} m` + (pend !== null ? ` · ${pend > 0 ? "+" : pend < 0 ? "−" : ""}${Math.abs(pend).toFixed(0)} %` : "");
+  if (!markerPerfil) {
+    const el = document.createElement("div");
+    el.style.cssText = "width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid #1a1a1a;box-shadow:0 0 0 2px #fff;pointer-events:none";
+    markerPerfil = new maplibregl.Marker({ element: el }).setLngLat([q.lon, q.lat]).addTo(map);
+  }
+  markerPerfil.setLngLat([q.lon, q.lat]);
+  markerPerfil.getElement().style.display = "";
+}
+function salirPerfil() {
+  const linea = document.getElementById("pfLinea"), punto = document.getElementById("pfPunto");
+  if (linea) linea.style.display = "none";
+  if (punto) punto.style.display = "none";
+  document.getElementById("perfilInfo").textContent = "";
+  if (markerPerfil) markerPerfil.getElement().style.display = "none";
+}
+document.getElementById("perfilGraf").addEventListener("pointermove", hoverPerfil);
+document.getElementById("perfilGraf").addEventListener("pointerleave", salirPerfil);
+document.getElementById("perfilCerrar").addEventListener("click", () => {
+  document.getElementById("mapwrap").classList.remove("conPerfil"); salirPerfil();
+});
+window.addEventListener("resize", () => { if (perfilDatos && document.getElementById("mapwrap").classList.contains("conPerfil")) dibujarPerfil(); });
+
+// Quita la ruta calculada (porque algo ha cambiado o se empieza de cero)
+function invalidarRuta() {
+  versionRuta++;
+  const hab = rutaGenerada !== null;
+  rutaGenerada = null;
+  const src = map.getSource("ruta-generada");
+  if (src) src.setData({ type: "FeatureCollection", features: [] });
+  document.getElementById("resumenRuta").innerHTML = "";
+  document.getElementById("btnDescargarGPX").disabled = true;
+  document.getElementById("btnDescargarMapa").style.display = "none";
+  ocultarPerfil();
+  if (hab) document.getElementById("estadoRuta").textContent = "";
+}
+
+document.getElementById("btnGenerar").addEventListener("click", async () => {
+  if (miRuta.length === 0) return;
+  const seleccion = miRuta.map(id => porId.get(id)).filter(Boolean);
+  const perfil = document.getElementById("perfil").value;
+  const btn = document.getElementById("btnGenerar");
+  const estado = document.getElementById("estadoRuta");
+  const volver = document.getElementById("volverInicio").checked;
+  const fin = volver ? puntoInicio : (puntoFin || puntoInicio);
+  invalidarRuta();
+  const version = versionRuta;
+  btn.disabled = true;
+  estado.textContent = "Iniciando...";
+  try {
+    const r = await window.generarRutaGPX(seleccion, puntoInicio, fin, perfil, (msg) => { if (version === versionRuta) estado.textContent = msg; });
+    if (version !== versionRuta) { estado.textContent = "La selección cambió mientras se calculaba. Vuelve a generar."; return; }
+    rutaGenerada = r;
+    let bi = 0;
+    r.segmentos.forEach(sg => { sg.color = sg.tipo === "bajada" ? colorDe(seleccion[bi++].properties) : COLOR_RUTA; });
+    dibujarRuta(r.segmentos);
+    mostrarPerfil(r.segmentos, r.stats);
+    mostrarResumenRuta(r.stats);
+    document.getElementById("btnDescargarGPX").disabled = false;
+    document.getElementById("btnDescargarMapa").style.display = "block";
+    estado.textContent = "Ruta lista. Revísala en el mapa y descarga el GPX.";
+  } catch (e) {
+    estado.textContent = "Error: " + e.message;
+    console.error(e);
+  } finally {
+    actualizarBotonGenerar();
+  }
+});
+
+function descargarRuta() {
+  if (!rutaGenerada) return;
+  window.descargarGPX(rutaGenerada.gpx, "ruta.gpx");
+  document.getElementById("estadoRuta").textContent = "GPX descargado ✓";
+}
+document.getElementById("btnDescargarGPX").addEventListener("click", descargarRuta);
+document.getElementById("btnDescargarMapa").addEventListener("click", descargarRuta);
+
+document.getElementById("btnBorrarTodo").addEventListener("click", () => {
+  if (miRuta.length === 0 && !puntoInicio && !puntoFin && !rutaGenerada) return;
+  if (!confirm("¿Borrar bajadas, inicio, fin y ruta generada, y empezar de cero?")) return;
+  if (modoMarcar) armarModo(modoMarcar);
+  miRuta.length = 0; puntoInicio = null; puntoFin = null;
+  guardarMiRuta(); guardarPuntos(); invalidarRuta();
+  document.getElementById("volverInicio").checked = true;
+  document.getElementById("perfil").value = "mtb";
+  deseleccionar();
+  renderMiRuta(); actualizarBotonesRuta(); actualizarPopupBoton(); actualizarUIPuntos();
+  document.getElementById("estadoRuta").textContent = "";
+  ajustarVista();
+});
+</script>
+</body>
+</html>

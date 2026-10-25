@@ -1,0 +1,205 @@
+// ruta.js — generación de GPX con enlaces BRouter
+// Expone window.generarRutaGPX que usa el index.html
+
+const BROUTER_URL = "https://brouter.de/brouter";
+const MAX_SALTO_AVISO_M = 80;
+const AVISO_ENLACE_LARGO_KM = 20;
+const MIN_ENLACE_M = 30; // enlaces más cortos se saltan (BRouter no aporta nada)
+
+function haversine(a, b) {
+  const R = 6371000;
+  const p1 = a[0] * Math.PI / 180, p2 = b[0] * Math.PI / 180;
+  const dp = p2 - p1;
+  const dl = (b[1] - a[1]) * Math.PI / 180;
+  const h = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+async function llamarBRouter(lon1, lat1, lon2, lat2, perfil) {
+  const lonlats = `${lon1},${lat1}|${lon2},${lat2}`;
+  const url = `${BROUTER_URL}?lonlats=${encodeURIComponent(lonlats)}&profile=${encodeURIComponent(perfil)}&format=gpx`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`BRouter respondió ${r.status}`);
+  return await r.text();
+}
+
+function parsearGPXPuntos(gpxTexto) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(gpxTexto, "application/xml");
+  const pts = [];
+  const trkpts = doc.getElementsByTagName("trkpt");
+  for (let i = 0; i < trkpts.length; i++) {
+    const el = trkpts[i];
+    const lat = parseFloat(el.getAttribute("lat"));
+    const lon = parseFloat(el.getAttribute("lon"));
+    const eleEl = el.getElementsByTagName("ele")[0];
+    const ele = eleEl ? parseFloat(eleEl.textContent) : null;
+    pts.push([lat, lon, ele]);
+  }
+  return pts;
+}
+
+function puntoInicioBajada(f) {
+  const p = f.properties;
+  if (p.inicio) return [p.inicio[1], p.inicio[0]];
+  const c = f.geometry.coordinates[0];
+  return [c[1], c[0]];
+}
+function puntoFinBajada(f) {
+  const p = f.properties;
+  if (p.fin) return [p.fin[1], p.fin[0]];
+  const c = f.geometry.coordinates[f.geometry.coordinates.length - 1];
+  return [c[1], c[0]];
+}
+function geometriaBajada(f) {
+  return f.geometry.coordinates.map(c => [c[1], c[0], c.length > 2 ? c[2] : null]);
+}
+
+function esc(t) {
+  return String(t ?? "").replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function construirGPX(puntos, waypoints) {
+  const lines = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<gpx version="1.1" creator="ride-planner-piloto" xmlns="http://www.topografix.com/GPX/1/1">',
+    '  <metadata><name>Ruta Ride Planner</name></metadata>'
+  ];
+  for (const w of waypoints) {
+    lines.push(`  <wpt lat="${w.lat.toFixed(6)}" lon="${w.lon.toFixed(6)}">`);
+    lines.push(`    <name>${esc(w.name)}</name>`);
+    lines.push('  </wpt>');
+  }
+  lines.push('  <trk>');
+  lines.push('    <name>Ruta</name>');
+  lines.push('    <trkseg>');
+  for (const [lat, lon, ele] of puntos) {
+    lines.push(`      <trkpt lat="${lat.toFixed(6)}" lon="${lon.toFixed(6)}">`);
+    if (ele !== null && ele !== undefined) lines.push(`        <ele>${ele.toFixed(1)}</ele>`);
+    lines.push('      </trkpt>');
+  }
+  lines.push('    </trkseg>');
+  lines.push('  </trk>');
+  lines.push('</gpx>');
+  return lines.join("\n");
+}
+
+function descargarGPX(gpx, nombre) {
+  const blob = new Blob([gpx], { type: "application/gpx+xml" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function longitudM(pts) {
+  let d = 0;
+  for (let i = 1; i < pts.length; i++) d += haversine([pts[i - 1][0], pts[i - 1][1]], [pts[i][0], pts[i][1]]);
+  return d;
+}
+
+// Estadísticas de toda la ruta (segmentos en orden). Puntos = [lat, lon, ele|null]
+function calcularEstadisticas(segmentos) {
+  let distM = 0, distBajadasM = 0, sube = 0, baja = 0, conEle = 0, total = 0, eleAnt = null;
+  for (const s of segmentos) {
+    const d = longitudM(s.puntos);
+    distM += d;
+    if (s.tipo === "bajada") distBajadasM += d;
+    for (const p of s.puntos) {
+      total++;
+      if (p[2] === null || p[2] === undefined) continue;
+      conEle++;
+      if (eleAnt !== null) { const dz = p[2] - eleAnt; if (dz > 0) sube += dz; else baja -= dz; }
+      eleAnt = p[2];
+    }
+  }
+  const hayEle = total > 0 && conEle / total > 0.9;
+  return {
+    distM, distBajadasM, distEnlacesM: distM - distBajadasM,
+    sube: hayEle ? Math.round(sube) : null,
+    baja: hayEle ? Math.round(baja) : null
+  };
+}
+
+/**
+ * Calcula la ruta completa (sin descargar nada).
+ * @param {Array} seleccion - features de bajadas en orden
+ * @param {Array|null} puntoInicio - [lat, lon] o null
+ * @param {Array|null} puntoFin - [lat, lon] o null (null = no hay enlace final)
+ * @param {string} perfil - "mtb" | "trekking" | "fastbike" | "safety"
+ * @param {Function} onEstado - callback(msg) para mostrar progreso
+ * @returns {Promise<{gpx:string, segmentos:Array, stats:Object}>}
+ *   segmentos: [{tipo:"bajada"|"enlace", nombre, puntos:[[lat,lon,ele],...]}]
+ */
+async function generarRutaGPX(seleccion, puntoInicio, puntoFin, perfil, onEstado) {
+  if (seleccion.length === 0) throw new Error("No hay bajadas seleccionadas");
+
+  const estado = onEstado || (() => {});
+  const segmentos = [];
+  const waypoints = [];
+
+  // Pide un enlace a BRouter y lo añade como segmento. Salta enlaces muy cortos.
+  async function enlace(desde, hasta, etiqueta) {
+    const d = haversine(desde, hasta);
+    if (d < MIN_ENLACE_M) return;
+    if (d > AVISO_ENLACE_LARGO_KM * 1000) {
+      if (!confirm(`El ${etiqueta} es de ${(d / 1000).toFixed(1)} km. ¿Continuar?`)) {
+        throw new Error("Cancelado por el usuario");
+      }
+    }
+    estado(`${etiqueta[0].toUpperCase() + etiqueta.slice(1)} (${Math.round(d)} m)...`);
+    let pts;
+    try {
+      const gpx = await llamarBRouter(desde[1], desde[0], hasta[1], hasta[0], perfil);
+      pts = parsearGPXPuntos(gpx);
+    } catch (e) {
+      console.warn(`Error en ${etiqueta}:`, e);
+      throw new Error(`No se pudo calcular el ${etiqueta}: ` + e.message);
+    }
+    if (pts.length === 0) throw new Error(`BRouter no devolvió ninguna ruta para el ${etiqueta}`);
+    const d0 = haversine(desde, [pts[0][0], pts[0][1]]);
+    const d1 = haversine(hasta, [pts[pts.length - 1][0], pts[pts.length - 1][1]]);
+    if (d0 > MAX_SALTO_AVISO_M || d1 > MAX_SALTO_AVISO_M) {
+      console.warn(`Salto en ${etiqueta}: ${d0.toFixed(0)} m / ${d1.toFixed(0)} m`);
+    }
+    segmentos.push({ tipo: "enlace", nombre: etiqueta, puntos: pts });
+  }
+
+  // Enlace inicial
+  if (puntoInicio) {
+    await enlace(puntoInicio, puntoInicioBajada(seleccion[0]), "enlace inicial");
+    waypoints.push({ lat: puntoInicio[0], lon: puntoInicio[1], name: "Inicio ruta" });
+  }
+
+  // Bajadas y enlaces intermedios
+  for (let i = 0; i < seleccion.length; i++) {
+    const f = seleccion[i];
+    const nombre = f.properties.nombre || `Bajada ${i + 1}`;
+    const ini = puntoInicioBajada(f);
+    waypoints.push({ lat: ini[0], lon: ini[1], name: `Inicio ${nombre}` });
+    segmentos.push({ tipo: "bajada", nombre, puntos: geometriaBajada(f) });
+    estado(`Bajada ${i + 1}/${seleccion.length}: ${nombre}`);
+
+    if (i < seleccion.length - 1) {
+      await enlace(puntoFinBajada(f), puntoInicioBajada(seleccion[i + 1]), `enlace ${i + 1}->${i + 2}`);
+    }
+  }
+
+  // Enlace final (puntoFin ya viene resuelto desde index.html)
+  if (puntoFin) {
+    await enlace(puntoFinBajada(seleccion[seleccion.length - 1]), puntoFin, "enlace final");
+    waypoints.push({ lat: puntoFin[0], lon: puntoFin[1], name: "Fin ruta" });
+  }
+
+  estado("Generando GPX...");
+  const puntos = segmentos.flatMap(s => s.puntos);
+  return { gpx: construirGPX(puntos, waypoints), segmentos, stats: calcularEstadisticas(segmentos) };
+}
+
+window.generarRutaGPX = generarRutaGPX;
+window.descargarGPX = descargarGPX;
