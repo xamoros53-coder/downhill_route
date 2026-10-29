@@ -181,11 +181,46 @@
   #resumenRuta:empty { display: none; }
   #resumenRuta .sw { display: inline-block; width: 14px; height: 4px; border-radius: 2px; vertical-align: middle; margin: 0 3px 1px 6px; }
   #estadoRuta { font-size: 11px; color: #777; min-height: 14px; text-align: center; }
+  /* Interfaz compacta: mapa protagonista y búsqueda flotante */
+  #panel > header, #filtros, #lista { display: none !important; }
+  #panel { width: 340px; border-left: 1px solid #dfe4e8; background: #f4f6f8; }
+  #miRuta { max-height: 100%; flex: 1; min-height: 0; border-top: 0; box-shadow: -3px 0 18px rgba(20,35,50,.06); }
+  #miRuta header { padding: 15px 16px; }
+  #miRuta header h2 { font-size: 17px; font-weight: 750; }
+  #miRutaLista { max-height: none; min-height: 60px; }
+  #bloqueRuta { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  #busquedaWrap { position:absolute; z-index:8; top:12px; left:12px; width:min(330px, calc(100% - 24px)); }
+  #btnBuscarToggle { width:46px; height:46px; border:0; border-radius:14px; background:#fff; color:#243746; font-size:22px; box-shadow:0 2px 12px rgba(0,0,0,.22); cursor:pointer; touch-action:manipulation; }
+  #busquedaPanel { display:none; background:#fff; border-radius:14px; margin-top:7px; padding:8px; box-shadow:0 3px 16px rgba(0,0,0,.2); }
+  #busquedaPanel.abierto { display:block; }
+  #busquedaInput { width:100%; height:44px; border:1px solid #d4dbe1; border-radius:10px; padding:0 12px; font-size:16px; outline:none; }
+  #busquedaInput:focus { border-color:#2c3e50; box-shadow:0 0 0 3px rgba(44,62,80,.12); }
+  #busquedaResultados { max-height:220px; overflow:auto; }
+  .resultado-busqueda { display:block; width:100%; text-align:left; border:0; border-bottom:1px solid #eef0f2; background:#fff; padding:12px 9px; min-height:44px; font-size:14px; cursor:pointer; touch-action:manipulation; }
+  .resultado-busqueda:last-child { border-bottom:0; }
+  .resultado-busqueda:active { background:#edf2f6; }
+  .resultado-vacio { color:#777; padding:12px 9px; font-size:13px; }
+  #ficha { left:12px; bottom:18px; width:310px; max-width:calc(100% - 24px); z-index:7; }
+  .maplibregl-canvas { touch-action: pan-x pan-y; }
+  button, input, select { touch-action: manipulation; }
   @media (max-width: 720px) {
     #app { flex-direction: column; }
-    #mapwrap { flex: none; height: 45%; }
-    #panel { width: 100%; height: 55%; border-left: none; border-top: 1px solid #e0e0e0; }
-    #miRuta { max-height: 45%; }
+    #mapwrap { flex:none; height:56%; min-height:240px; }
+    #panel { width:100%; height:44%; min-height:0; border-left:none; border-top:1px solid #dfe4e8; }
+    #miRuta { max-height:none; }
+    #miRutaLista { max-height:90px; }
+    #miRuta header { padding:8px 14px; }
+    #miRutaLista { padding:5px 8px; }
+    #miRutaLista .item { min-height:38px; }
+    #bloqueRuta { gap:6px; padding:8px 12px; }
+    #bloqueRuta .puntoRuta { min-height:36px; }
+    #btnGenerar, #btnDescargarGPX { min-height:42px; }
+    #ficha { bottom:10px; max-height:48%; width:min(330px, calc(100% - 24px)); }
+    #mapwrap.conPerfil #ficha { bottom:162px; max-height:calc(100% - 200px); }
+    #busquedaWrap { top:10px; left:10px; width:min(340px, calc(100% - 64px)); }
+    #btnBuscarToggle { width:44px; height:44px; }
+    #busquedaPanel { margin-top:6px; }
+    #busquedaResultados { max-height:150px; }
   }
 </style>
 </head>
@@ -193,6 +228,13 @@
 <div id="app">
   <div id="mapwrap">
     <div id="map"></div>
+    <div id="busquedaWrap">
+      <button id="btnBuscarToggle" aria-label="Buscar bajada" title="Buscar bajada">⌕</button>
+      <div id="busquedaPanel">
+        <input id="busquedaInput" type="search" placeholder="Buscar bajada por nombre…" autocomplete="off" />
+        <div id="busquedaResultados" aria-live="polite"></div>
+      </div>
+    </div>
     <button id="btnDescargarMapa">⬇ Descargar GPX</button>
     <div id="ficha"></div>
     <div id="perfilAlt">
@@ -205,15 +247,7 @@
       <h1>Ride Planner · cabrils</h1>
       <div class="sub" id="contador">Cargando…</div>
     </header>
-    <div id="filtros">
-      <button class="chip active" data-filtro="todas">Todas</button>
-      <button class="chip active" data-color="verde"><span class="dot" style="background:var(--verde)"></span>Verde</button>
-      <button class="chip active" data-color="azul"><span class="dot" style="background:var(--azul)"></span>Azul</button>
-      <button class="chip active" data-color="rojo"><span class="dot" style="background:var(--rojo)"></span>Rojo</button>
-      <button class="chip active" data-color="negro"><span class="dot" style="background:var(--negro)"></span>Negro</button>
-      <button class="chip active" data-color="sin"><span class="dot" style="background:var(--gris)"></span>Sin dif.</button>
-      <button class="chip" data-solo="osm">Con nombre y dificultad</button>
-    </div>
+    <div id="filtros"></div>
     <div id="lista"></div>
 
     <div id="miRuta">
@@ -433,7 +467,7 @@ map.on("load", async () => {
     features = bj.features.filter(f => f.properties.es_bajada);
     features.forEach(f => { const p = f.properties; p._cat = catDe(p); p._osm = p.fiabilidad === "osm"; porId.set(idDe(f), f); });
     tr.features = tr.features.filter(t => porId.has(t.properties.bajada_id));
-    tr.features.forEach(t => { const b = porId.get(t.properties.bajada_id).properties; t.properties._cat = b._cat; t.properties._osm = b._osm; });
+    tr.features.forEach(t => { const b = porId.get(t.properties.bajada_id).properties; t.properties._cat = b._cat; t.properties._osm = b._osm; t.properties.nombre = b.nombre || ""; });
     await cargarCapas(tr);
     cargarLista();
     cargarMiRutaGuardado(); renderMiRuta(); actualizarBotonesRuta(); actualizarUIPuntos();
@@ -465,12 +499,12 @@ async function cargarCapas(tramos) {
   features.forEach(f => {
     const p = f.properties; const c = f.geometry.coordinates;
     const ini = p.inicio || c[0].slice(0, 2); const fin = p.fin || c[c.length - 1].slice(0, 2);
-    const base = { _cat: p._cat, _osm: p._osm, _color: colorDe(p), bajada_id: idDe(f) };
+    const base = { _cat: p._cat, _osm: p._osm, _color: colorDe(p), bajada_id: idDe(f), nombre: p.nombre || "" };
     puntos.features.push({ type: "Feature", geometry: { type: "Point", coordinates: ini }, properties: { ...base, tipo: "inicio" } });
     puntos.features.push({ type: "Feature", geometry: { type: "Point", coordinates: fin }, properties: { ...base, tipo: "final" } });
   });
   map.addSource("puntos", { type: "geojson", data: puntos });
-  map.addLayer({ id: "puntos-inicio", type: "circle", source: "puntos", filter: ["==", ["get", "tipo"], "inicio"], paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 4, 16, 8], "circle-color": "#ffffff", "circle-stroke-color": ["get", "_color"], "circle-stroke-width": 2.5 } });
+  map.addLayer({ id: "puntos-inicio", type: "circle", source: "puntos", filter: ["==", ["get", "tipo"], "inicio"], paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 2.5, 14, 4, 16, 5], "circle-color": "#ffffff", "circle-stroke-color": ["get", "_color"], "circle-stroke-width": 2 } });
   await Promise.all(CATS.map(c => cargarIcono("cuadrado-" + c, COLORES[c])));
   map.addLayer({ id: "puntos-final", type: "symbol", source: "puntos", filter: ["==", ["get", "tipo"], "final"], layout: { "icon-image": ["concat", "cuadrado-", ["get", "_cat"]], "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.3, 14, 0.45, 17, 0.65], "icon-allow-overlap": true, "icon-ignore-placement": true } });
 
@@ -481,10 +515,27 @@ async function cargarCapas(tramos) {
     "icon-rotation-alignment": "map", "icon-allow-overlap": true, "icon-ignore-placement": true } }, "puntos-inicio");
 
   aplicarFiltrosMapa();
-  const clic = (e) => { if (modoMarcar) return; const id = e.features[0].properties.bajada_id; seleccionar(id, { lngLat: e.lngLat }); };
+  let ultimoToque = 0;
+  const clic = (e) => {
+    if (modoMarcar || !e.features || !e.features.length) return;
+    if (Date.now() - ultimoToque < 650) return;
+    const id = e.features[0].properties.bajada_id;
+    seleccionar(id, { lngLat: e.lngLat });
+  };
   map.on("click", "tramos-line", clic);
   map.on("click", "puntos-inicio", clic);
   map.on("click", "puntos-final", clic);
+  // En pantallas táctiles ampliamos el área de selección alrededor del dedo.
+  map.on("touchend", (e) => {
+    if (modoMarcar || !e.point) return;
+    const p = e.point, pad = 14;
+    const caja = [[p.x-pad, p.y-pad], [p.x+pad, p.y+pad]];
+    const encontrados = map.queryRenderedFeatures(caja, { layers: ["tramos-line", "puntos-inicio", "puntos-final"] });
+    if (!encontrados.length) return;
+    ultimoToque = Date.now();
+    const elegido = encontrados.find(f => f.properties && f.properties.bajada_id);
+    if (elegido) seleccionar(elegido.properties.bajada_id, { lngLat: e.lngLat });
+  });
   ["tramos-line", "puntos-inicio", "puntos-final"].forEach(layer => {
     map.on("mouseenter", layer, () => map.getCanvas().style.cursor = "pointer");
     map.on("mouseleave", layer, () => map.getCanvas().style.cursor = "");
@@ -601,9 +652,10 @@ function ajustarVista() {
 function aplicarFiltrosMapa() {
   const base = [["in", ["get", "_cat"], ["literal", [...activos.color]]]];
   if (activos.soloOsm) base.push(["==", ["get", "_osm"], true]);
-  ["tramos-halo", "tramos-line"].forEach(id => {
-    if (map.getLayer(id)) map.setFilter(id, ["all", ...base]);
-  });
+  const idsBusqueda = (typeof textoBusqueda === "string" && textoBusqueda)
+    ? features.filter(f => String(f.properties.nombre || "").toLocaleLowerCase("es").includes(textoBusqueda)).map(idDe) : null;
+  if (idsBusqueda) base.push(["in", ["get", "bajada_id"], ["literal", idsBusqueda]]);
+  ["tramos-halo", "tramos-line"].forEach(id => { if (map.getLayer(id)) map.setFilter(id, ["all", ...base]); });
   if (map.getLayer("puntos-inicio")) map.setFilter("puntos-inicio", ["all", ...base, ["==", ["get", "tipo"], "inicio"]]);
   if (map.getLayer("puntos-final")) map.setFilter("puntos-final", ["all", ...base, ["==", ["get", "tipo"], "final"]]);
 }
@@ -628,6 +680,54 @@ document.querySelectorAll("#filtros .chip").forEach(chip => {
     cargarLista();
   });
 });
+
+// ---- Búsqueda rápida por nombre (mapa) ----
+const busquedaWrap = document.getElementById("busquedaWrap");
+const btnBuscarToggle = document.getElementById("btnBuscarToggle");
+const busquedaPanel = document.getElementById("busquedaPanel");
+const busquedaInput = document.getElementById("busquedaInput");
+const busquedaResultados = document.getElementById("busquedaResultados");
+let textoBusqueda = "";
+btnBuscarToggle.addEventListener("click", () => {
+  const abrir = !busquedaPanel.classList.contains("abierto");
+  busquedaPanel.classList.toggle("abierto", abrir);
+  btnBuscarToggle.setAttribute("aria-label", abrir ? "Cerrar búsqueda" : "Buscar bajada");
+  if (abrir) setTimeout(() => busquedaInput.focus(), 30);
+  else { busquedaInput.value = ""; textoBusqueda = ""; actualizarBusqueda(); }
+});
+function actualizarBusqueda() {
+  textoBusqueda = busquedaInput.value.trim().toLocaleLowerCase("es");
+  const coincidencias = features.filter(f => !textoBusqueda || String(f.properties.nombre || "").toLocaleLowerCase("es").includes(textoBusqueda));
+  const ids = coincidencias.map(idDe);
+  ["tramos-halo", "tramos-line", "puntos-inicio", "puntos-final"].forEach(layer => {
+    if (!map.getLayer(layer)) return;
+    const esPunto = layer.startsWith("puntos-");
+    const tipo = layer === "puntos-inicio" ? "inicio" : "final";
+    const filtros = [["in", ["get", "bajada_id"], ["literal", ids]]];
+    if (esPunto) filtros.push(["==", ["get", "tipo"], tipo]);
+    // Mantiene los filtros de categoría existentes (todos activos por defecto).
+    const base = [["in", ["get", "_cat"], ["literal", [...activos.color]]]];
+    if (activos.soloOsm) base.push(["==", ["get", "_osm"], true]);
+    map.setFilter(layer, ["all", ...base, ...filtros]);
+  });
+  busquedaResultados.innerHTML = "";
+  if (!textoBusqueda) return;
+  if (!coincidencias.length) {
+    busquedaResultados.innerHTML = '<div class="resultado-vacio">No se han encontrado bajadas con ese nombre.</div>';
+    return;
+  }
+  coincidencias.slice(0, 8).forEach(f => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "resultado-busqueda";
+    b.textContent = f.properties.nombre || "Bajada sin nombre";
+    b.addEventListener("click", () => {
+      const id = idDe(f); seleccionar(id, { fit: true });
+      busquedaPanel.classList.remove("abierto");
+      busquedaInput.blur();
+    });
+    busquedaResultados.appendChild(b);
+  });
+}
+busquedaInput.addEventListener("input", actualizarBusqueda);
 
 // ---- Ruta generada: dibujar, invalidar, descargar, borrar todo ----
 function crearFlecha() {
