@@ -133,12 +133,14 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
   #miRuta { flex: 1; min-height: 0; display: flex; flex-direction: column; background: #fff; box-shadow: -3px 0 18px rgba(20,35,50,.06); }
-  #barraRuta { position: relative; flex: none; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid #edf0f2; }
-  #barraRuta .grip { display: none; position: absolute; top: 5px; left: 50%; width: 36px; height: 4px; border-radius: 2px; background: #d3d9df; transform: translateX(-50%); pointer-events: none; }
+  #barraRuta { touch-action: none; position: relative; flex: none; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid #edf0f2; }
+  #barraRuta .grip { display: none; position: absolute; top: 7px; left: 50%; width: 44px; height: 5px; border-radius: 2px; background: #d3d9df; transform: translateX(-50%); pointer-events: none; }
   #btnPanelToggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 4px 0; text-align: left; cursor: pointer; font: inherit; color: #243746; }
-  #btnPanelToggle .chev { flex: none; width: 24px; height: 24px; border-radius: 50%; background: #eef1f4; display: grid; place-items: center; font-size: 11px; transition: transform .2s; }
-  #miRuta.abierto #btnPanelToggle .chev { transform: rotate(180deg); }
-  .barra-txt { min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+  #btnPanelToggle { touch-action: none; }
+  #btnPanelToggle .chev { flex: none; display: flex; align-items: center; gap: 5px; height: 30px; padding: 0 11px; border-radius: 15px; background: #e8edf1; font-size: 12px; font-weight: 600; color: #243746; }
+  #btnPanelToggle .flecha { display: inline-block; font-size: 10px; transition: transform .2s; }
+  #miRuta.abierto #btnPanelToggle .flecha { transform: rotate(180deg); }
+  .barra-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
   .barra-txt .t1 { font-size: 14px; font-weight: 700; }
   .barra-txt .t1 span { font-weight: 500; color: #6b7280; margin-left: 4px; }
   .barra-txt .tot { font-size: 12px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -191,7 +193,7 @@
     #mapwrap { flex: 1; min-height: 0; height: auto; }
     #panel { width: 100%; flex: none; border-left: 0; border-top: 1px solid #dfe4e8; box-shadow: 0 -4px 16px rgba(20,35,50,.12); }
     #miRuta { flex: none; }
-    #barraRuta { padding: 15px 12px 8px; }
+    #barraRuta { padding: 20px 12px 10px; }
     #barraRuta .grip { display: block; }
     #detalleWrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .22s ease; }
     #miRuta.abierto #detalleWrap { grid-template-rows: 1fr; }
@@ -242,11 +244,11 @@
       <div id="barraRuta">
         <span class="grip"></span>
         <button id="btnPanelToggle" type="button" aria-expanded="false" aria-controls="detalle">
-          <span class="chev">▲</span>
           <span class="barra-txt">
             <span class="t1">Mi ruta <span id="miRutaContador">0 bajadas</span></span>
             <span class="tot" id="miRutaTotales">Sin bajadas todavía</span>
           </span>
+          <span class="chev"><span class="flecha">▲</span>Opciones</span>
         </button>
         <button id="btnGenerar" disabled>Generar ruta</button>
       </div>
@@ -334,7 +336,26 @@ function setPanel(abierto) {
   btnPanelToggle.setAttribute("aria-expanded", String(abierto));
   [0, 260].forEach(ms => setTimeout(() => map.resize(), ms)); // el mapa cambia de alto
 }
-btnPanelToggle.addEventListener("click", () => setPanel(!miRutaEl.classList.contains("abierto")));
+const barraRutaEl = document.getElementById("barraRuta");
+let gesto = null, huboArrastre = false;
+barraRutaEl.addEventListener("pointerdown", (e) => {
+  if (e.target.closest("#btnGenerar")) { gesto = null; return; }
+  gesto = { y: e.clientY }; huboArrastre = false;
+});
+barraRutaEl.addEventListener("pointermove", (e) => {
+  if (gesto && Math.abs(e.clientY - gesto.y) > 12) huboArrastre = true;
+});
+barraRutaEl.addEventListener("pointerup", (e) => {
+  if (!gesto) return;
+  const dy = e.clientY - gesto.y; gesto = null;
+  if (dy < -24) setPanel(true); else if (dy > 24) setPanel(false);   // deslizar arriba / abajo
+});
+barraRutaEl.addEventListener("pointercancel", () => { gesto = null; });
+barraRutaEl.addEventListener("click", (e) => {                       // toque en cualquier parte de la barra
+  if (e.target.closest("#btnGenerar")) return;
+  if (huboArrastre) { huboArrastre = false; return; }
+  setPanel(!miRutaEl.classList.contains("abierto"));
+});
 
 function cargarMiRutaGuardado() {
   try {
