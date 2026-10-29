@@ -100,109 +100,12 @@
   .maplibregl-popup-content table { border-collapse: collapse; }
   .maplibregl-popup-content td { padding: 2px 8px 2px 0; vertical-align: top; }
   .maplibregl-popup-content td:first-child { color: #777; }
-  #miRuta {
-    border-top: 1px solid #e0e0e0; background: #fff;
-    display: flex; flex-direction: column; max-height: 60%; flex: none; overflow-y: auto;
-  }
-  #miRuta > * { flex-shrink: 0; }
-  #miRutaLista { max-height: 130px; }
   #btnDescargarMapa {
     position: absolute; top: 12px; left: 12px; z-index: 5; display: none;
     padding: 8px 14px; border: none; border-radius: 8px; background: #2e7d32; color: #fff;
     font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.3);
   }
   #btnDescargarMapa:hover { background: #1b5e20; }
-  #miRuta header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 10px 16px; border-bottom: 1px solid #f0f0f0;
-  }
-  #miRuta header h2 { font-size: 14px; margin: 0; }
-  #miRuta header .cont { font-size: 12px; color: #777; }
-  #miRutaLista { flex: 1; overflow-y: auto; padding: 8px; min-height: 40px; }
-  #miRutaLista .vacio { color: #999; font-size: 12px; padding: 8px; text-align: center; }
-  #miRutaLista .item {
-    display: flex; align-items: center; gap: 8px;
-    padding: 6px 8px; border-radius: 6px; margin-bottom: 4px;
-    background: #f7f8fa; font-size: 13px;
-  }
-  #miRutaLista .item .num { font-weight: 600; color: #999; width: 18px; text-align: right; flex: none; }
-  #miRutaLista .item .punto { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-  #miRutaLista .item .nom { flex: 1; }
-  #miRutaLista .item .x {
-    border: none; background: none; cursor: pointer; color: #999; font-size: 16px;
-    line-height: 1; padding: 0 4px;
-  }
-  #miRutaLista .item .x:hover { color: #d62f2f; }
-  #miRuta footer {
-    padding: 8px 16px; border-top: 1px solid #f0f0f0; font-size: 12px; color: #555;
-    display: flex; justify-content: space-between; align-items: center; gap: 8px;
-  }
-  #miRuta footer .totales { flex: 1; line-height: 1.4; }
-  #miRuta footer .totales strong { color: #2c3e50; }
-  #bloqueRuta {
-    padding: 12px 16px; border-top: 1px solid #f0f0f0; background: #fafbfc;
-    display: flex; flex-direction: column; gap: 8px;
-  }
-  #bloqueRuta .fila { display: flex; align-items: center; gap: 6px; font-size: 12px; }
-  #bloqueRuta .fila label { color: #555; min-width: 56px; }
-  #bloqueRuta select { flex: 1; padding: 4px 6px; border-radius: 6px; border: 1px solid #ccc; font-size: 12px; }
-  #bloqueRuta .puntoRuta {
-    display: flex; align-items: center; gap: 6px; font-size: 12px;
-    background: #fff; border: 1px solid #e6e6e6; border-radius: 6px; padding: 4px 6px;
-  }
-  #bloqueRuta .puntoRuta .txt { flex: 1; color: #333; font-family: ui-monospace, monospace; }
-  #bloqueRuta .puntoRuta .txt.vacio { color: #aaa; font-family: inherit; }
-  #bloqueRuta .puntoRuta button {
-    border: 1px solid #ccc; background: #fff; border-radius: 6px; cursor: pointer;
-    font-size: 11px; padding: 2px 6px;
-  }
-  #bloqueRuta .puntoRuta button:hover { border-color: #2c3e50; }
-  #bloqueRuta .puntoRuta button.armado { background: #ffd400; border-color: #d4b000; }
-  #bloqueRuta .puntoRuta button.x { color: #d62f2f; }
-  #bloqueRuta .check { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #555; }
-  #btnGenerar {
-    width: 100%; padding: 8px; border: none; border-radius: 6px;
-    background: #2c3e50; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
-  }
-  #btnGenerar:hover { background: #1a252f; }
-  #btnGenerar:disabled { background: #95a5a6; cursor: not-allowed; }
-  #btnDescargarGPX {
-    width: 100%; padding: 8px; border: none; border-radius: 6px;
-    background: #2e7d32; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
-  }
-  #btnDescargarGPX:hover { background: #1b5e20; }
-  #btnDescargarGPX:disabled { background: #95a5a6; cursor: not-allowed; }
-  #btnBorrarTodo {
-    width: 100%; padding: 6px; border: 1px solid #d62f2f; border-radius: 6px;
-    background: #fff; color: #d62f2f; font-size: 12px; cursor: pointer;
-  }
-  #btnBorrarTodo:hover { background: #d62f2f; color: #fff; }
-  #resumenRuta { font-size: 12px; color: #2c3e50; line-height: 1.5; }
-  #resumenRuta:empty { display: none; }
-  #resumenRuta .sw { display: inline-block; width: 14px; height: 4px; border-radius: 2px; vertical-align: middle; margin: 0 3px 1px 6px; }
-  #estadoRuta { font-size: 11px; color: #777; min-height: 14px; text-align: center; }
-  /* Interfaz compacta: mapa protagonista y búsqueda flotante */
-  #panel > header, #filtros, #lista { display: none !important; }
-  #panel { width: 340px; border-left: 1px solid #dfe4e8; background: #f4f6f8; }
-  #miRuta { max-height: 100%; flex: 1; min-height: 0; border-top: 0; box-shadow: -3px 0 18px rgba(20,35,50,.06); }
-  #miRuta header { padding: 15px 16px; }
-  #miRuta header h2 { font-size: 17px; font-weight: 750; }
-  #miRutaLista { max-height: none; min-height: 60px; }
-  #bloqueRuta { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
-  #bloqueInicio { padding:10px 14px 7px; background:#fff; border-bottom:1px solid #edf0f2; display:flex; flex-direction:column; gap:7px; flex-shrink:0; }
-  .seleccion-heading { padding:8px 14px 0; flex-shrink:0; }
-  #miRutaLista { min-height:42px; }
-  #miRuta footer { flex-shrink:0; }
-  #bloqueRuta { flex-shrink:0; }
-  #bloqueRuta .inicio-titulo, #bloqueRuta .seleccion-titulo { font-size:13px; font-weight:750; color:#263746; }
-  #bloqueRuta .inicio-titulo small { display:block; font-weight:400; color:#6b7280; font-size:11px; margin-top:2px; }
-  #bloqueRuta .seleccion-titulo { border-top:1px solid #e5e9ed; padding-top:7px; }
-  #bloqueRuta .perfil-fila { margin-top:2px; }
-  #bloqueRuta .puntoRuta { flex-wrap:wrap; }
-  #bloqueRuta .puntoRuta .txt { min-width:100%; font-size:11px; }
-  #bloqueRuta .puntoRuta button { min-height:32px; }
-  #btnGenerar { min-height:42px; }
-  #btnDescargarGPX { display:none !important; }
   #busquedaWrap { position:absolute; z-index:8; top:12px; left:12px; width:min(330px, calc(100% - 24px)); }
   #btnBuscarToggle { width:46px; height:46px; border:0; border-radius:14px; background:#fff; color:#243746; font-size:22px; box-shadow:0 2px 12px rgba(0,0,0,.22); cursor:pointer; touch-action:manipulation; }
   #busquedaPanel { display:none; background:#fff; border-radius:14px; margin-top:7px; padding:8px; box-shadow:0 3px 16px rgba(0,0,0,.2); }
@@ -221,31 +124,85 @@
   #ficha .cerrar { top:4px; right:6px; font-size:18px; }
   .maplibregl-canvas { touch-action: pan-x pan-y; }
   button, input, select { touch-action: manipulation; }
+
+  /* ===== Panel "Mi ruta" (compacto; en móvil, hoja inferior plegable) ===== */
+  #panel > header, #filtros, #lista { display: none !important; }
+  #panel {
+    width: 340px; background: #f4f6f8; border-left: 1px solid #dfe4e8;
+    display: flex; flex-direction: column; overflow: hidden;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  #miRuta { flex: 1; min-height: 0; display: flex; flex-direction: column; background: #fff; box-shadow: -3px 0 18px rgba(20,35,50,.06); }
+  #barraRuta { position: relative; flex: none; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid #edf0f2; }
+  #barraRuta .grip { display: none; position: absolute; top: 5px; left: 50%; width: 36px; height: 4px; border-radius: 2px; background: #d3d9df; transform: translateX(-50%); pointer-events: none; }
+  #btnPanelToggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 4px 0; text-align: left; cursor: pointer; font: inherit; color: #243746; }
+  #btnPanelToggle .chev { flex: none; width: 24px; height: 24px; border-radius: 50%; background: #eef1f4; display: grid; place-items: center; font-size: 11px; transition: transform .2s; }
+  #miRuta.abierto #btnPanelToggle .chev { transform: rotate(180deg); }
+  .barra-txt { min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+  .barra-txt .t1 { font-size: 14px; font-weight: 700; }
+  .barra-txt .t1 span { font-weight: 500; color: #6b7280; margin-left: 4px; }
+  .barra-txt .tot { font-size: 12px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #btnGenerar { flex: none; min-height: 42px; padding: 0 16px; border: 0; border-radius: 10px; background: #2c3e50; color: #fff; font-size: 14px; font-weight: 650; cursor: pointer; }
+  #btnGenerar:hover { background: #1a252f; }
+  #btnGenerar:disabled { background: #b4bec3; cursor: not-allowed; }
+  #estadoRuta { flex: none; padding: 5px 14px; font-size: 12px; color: #5b6670; background: #fafbfc; border-bottom: 1px solid #edf0f2; }
+  #estadoRuta:empty { display: none; }
+
+  #detalleWrap { flex: 1; min-height: 0; display: flex; }
+  #detalle { flex: 1; min-width: 0; overflow-y: auto; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+  .puntoRuta { display: flex; align-items: center; gap: 6px; background: #f7f8fa; border: 1px solid #e6e9ed; border-radius: 10px; padding: 4px 4px 4px 10px; }
+  .puntoRuta .ico { flex: none; font-size: 12px; }
+  .puntoRuta .txt { flex: 1; min-width: 0; font: 12px ui-monospace, monospace; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .puntoRuta .txt.vacio { color: #8f99a1; font-family: inherit; }
+  .puntoRuta button { flex: none; width: 36px; height: 36px; padding: 0; border: 1px solid #d4dbe1; background: #fff; border-radius: 8px; font-size: 15px; cursor: pointer; }
+  .puntoRuta button:hover { border-color: #2c3e50; }
+  .puntoRuta button.armado { background: #ffd400; border-color: #d4b000; }
+  .puntoRuta button.x { color: #d62f2f; font-size: 18px; }
+  .fila-opc { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .fila-opc .check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #333; min-height: 32px; }
+  .fila-opc .check input { width: 18px; height: 18px; }
+  .fila-opc .tipo { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #555; }
+  .fila-opc select { height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid #ccd3d9; font-size: 13px; background: #fff; }
+  .sec-titulo { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #6b7280; margin-bottom: -4px; }
+  #miRutaLista { display: flex; flex-wrap: wrap; gap: 6px; }
+  #miRutaLista .vacio { width: 100%; color: #8a939b; font-size: 12px; padding: 4px 2px; }
+  #miRutaLista .item { display: flex; align-items: center; gap: 6px; max-width: 100%; min-height: 34px; padding: 0 4px 0 9px; border-radius: 999px; background: #f1f4f6; border: 1px solid #e2e7eb; font-size: 13px; cursor: pointer; }
+  #miRutaLista .item .num { font-weight: 700; color: #8a939b; font-size: 11px; }
+  #miRutaLista .item .punto { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  #miRutaLista .item .nom { min-width: 0; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #miRutaLista .item .x { flex: none; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: none; color: #8a939b; font-size: 16px; cursor: pointer; }
+  #miRutaLista .item .x:hover { color: #d62f2f; background: #fff; }
+  #resumenRuta { font-size: 12px; color: #2c3e50; line-height: 1.5; background: #f7f8fa; border-radius: 10px; padding: 8px 10px; }
+  #resumenRuta:empty { display: none; }
+  #resumenRuta .sw { display: inline-block; width: 14px; height: 4px; border-radius: 2px; vertical-align: middle; margin: 0 3px 1px 6px; }
+  .acciones { display: flex; gap: 8px; }
+  .acciones button { flex: 1; min-height: 36px; border: 1px solid #ccd3d9; background: #fff; border-radius: 8px; font-size: 12px; color: #444; cursor: pointer; }
+  .acciones button:hover { border-color: #2c3e50; }
+  .acciones button.peligro { color: #d62f2f; border-color: #e7b4b4; }
+  .acciones button.peligro:hover { background: #d62f2f; border-color: #d62f2f; color: #fff; }
+  #btnDescargarGPX { display: none !important; }
+
+  @media (min-width: 721px) {
+    #btnPanelToggle { pointer-events: none; cursor: default; }
+    #btnPanelToggle .chev { display: none; }
+  }
   @media (max-width: 720px) {
     #app { flex-direction: column; }
-    #mapwrap { flex:none; height:56%; min-height:240px; }
-    #panel { width:100%; height:44%; min-height:0; border-left:none; border-top:1px solid #dfe4e8; }
-    #miRuta { max-height:none; }
-    #miRutaLista { max-height:90px; }
-    #miRuta header { padding:8px 14px; }
-    #bloqueInicio { padding:7px 10px 5px; gap:5px; }
-    #bloqueInicio .inicio-titulo { font-size:12px; }
-    #bloqueInicio .inicio-titulo small { display:inline; margin-left:4px; }
-    .seleccion-heading { padding:5px 10px 0; font-size:12px !important; }
-    #miRutaLista { padding:4px 8px; }
-    #miRutaLista .item { min-height:38px; }
-    #bloqueRuta { gap:6px; padding:8px 12px; }
-    #bloqueRuta .puntoRuta { min-height:36px; gap:5px; }
-    #bloqueRuta .puntoRuta button { flex:1; padding:5px 7px; font-size:11px; }
-    #bloqueRuta .perfil-fila label { min-width:auto; }
-    #bloqueRuta .perfil-fila select { max-width:145px; }
-    #btnGenerar, #btnDescargarGPX { min-height:42px; }
-    #ficha { bottom:10px; max-height:48%; width:min(330px, calc(100% - 24px)); }
-    #mapwrap.conPerfil #ficha { bottom:162px; max-height:calc(100% - 200px); }
-    #busquedaWrap { top:10px; left:10px; width:min(340px, calc(100% - 64px)); }
-    #btnBuscarToggle { width:44px; height:44px; }
-    #busquedaPanel { margin-top:6px; }
-    #busquedaResultados { max-height:150px; }
+    #mapwrap { flex: 1; min-height: 0; height: auto; }
+    #panel { width: 100%; flex: none; border-left: 0; border-top: 1px solid #dfe4e8; box-shadow: 0 -4px 16px rgba(20,35,50,.12); }
+    #miRuta { flex: none; }
+    #barraRuta { padding: 15px 12px 8px; }
+    #barraRuta .grip { display: block; }
+    #detalleWrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .22s ease; }
+    #miRuta.abierto #detalleWrap { grid-template-rows: 1fr; }
+    #detalle { min-height: 0; overflow: hidden; padding: 0 12px; }
+    #miRuta.abierto #detalle { overflow-y: auto; max-height: 46vh; max-height: 46dvh; padding: 10px 12px 12px; }
+    #ficha { bottom: 10px; max-height: 48%; width: min(330px, calc(100% - 24px)); }
+    #mapwrap.conPerfil #ficha { bottom: 162px; max-height: calc(100% - 200px); }
+    #busquedaWrap { top: 10px; left: 10px; width: min(340px, calc(100% - 64px)); }
+    #btnBuscarToggle { width: 44px; height: 44px; }
+    #busquedaPanel { margin-top: 6px; }
+    #busquedaResultados { max-height: 150px; }
   }
 </style>
 <link rel="manifest" href="./manifest.webmanifest">
@@ -282,39 +239,49 @@
     <div id="lista"></div>
 
     <div id="miRuta">
-      <header>
-        <h2>Mi ruta</h2>
-        <span class="cont" id="miRutaContador">0 bajadas</span>
-      </header>
-      <div id="bloqueInicio">
-        <div class="inicio-titulo">Punto de inicio <small>¿Dónde vas a empezar la ruta?</small></div>
-        <div class="puntoRuta" id="filaInicio">
-          <span class="txt vacio" id="txtInicio">Sin punto de inicio</span>
-          <button id="btnMarcarInicio" title="Elegir punto en el mapa">Elegir en mapa</button>
-          <button id="btnUbicacionInicio" title="Usar mi ubicación">📍 Mi ubicación</button>
-          <button id="btnBorrarInicio" class="x" title="Borrar">×</button>
-        </div>
-        <div class="check"><input type="checkbox" id="volverInicio" checked /><label for="volverInicio">Volver al inicio (ruta circular)</label></div>
-        <div class="puntoRuta" id="filaFin" style="display:none">
-          <span class="txt vacio" id="txtFin">Sin punto de fin</span>
-          <button id="btnMarcarFin" title="Clic en el mapa">Marcar</button>
-          <button id="btnUbicacionFin" title="Usar mi ubicación">📍</button>
-          <button id="btnBorrarFin" class="x" title="Borrar">×</button>
-        </div>
-      </div>
-      <div class="seleccion-titulo seleccion-heading">Bajadas seleccionadas</div>
-      <div id="miRutaLista"></div>
-      <footer>
-        <div class="totales" id="miRutaTotales">—</div>
-        <button class="chip" id="limpiarRuta">Vaciar</button>
-      </footer>
-      <div id="bloqueRuta">
-        <div class="fila perfil-fila"><label for="perfil">Tipo de ruta</label><select id="perfil"><option value="mtb">MTB</option><option value="trekking">Trekking</option><option value="fastbike">Fastbike</option><option value="safety">Safety</option></select></div>
+      <div id="barraRuta">
+        <span class="grip"></span>
+        <button id="btnPanelToggle" type="button" aria-expanded="false" aria-controls="detalle">
+          <span class="chev">▲</span>
+          <span class="barra-txt">
+            <span class="t1">Mi ruta <span id="miRutaContador">0 bajadas</span></span>
+            <span class="tot" id="miRutaTotales">Sin bajadas todavía</span>
+          </span>
+        </button>
         <button id="btnGenerar" disabled>Generar ruta</button>
-        <div id="resumenRuta"></div>
-        <button id="btnDescargarGPX" disabled style="display:none">Descargar GPX</button>
-        <div id="estadoRuta"></div>
-        <button id="btnBorrarTodo" title="Quita bajadas, inicio, fin y ruta generada">Empezar de cero</button>
+      </div>
+      <div id="estadoRuta"></div>
+      <div id="detalleWrap">
+        <div id="detalle">
+          <div class="puntoRuta" id="filaInicio">
+            <span class="ico">🟢</span>
+            <span class="txt vacio" id="txtInicio">Sin punto de inicio</span>
+            <button id="btnMarcarInicio" title="Elegir inicio en el mapa" aria-label="Elegir inicio en el mapa">🗺️</button>
+            <button id="btnUbicacionInicio" title="Usar mi ubicación" aria-label="Usar mi ubicación como inicio">📍</button>
+            <button id="btnBorrarInicio" class="x" title="Borrar inicio" aria-label="Borrar inicio">×</button>
+          </div>
+          <div class="puntoRuta" id="filaFin" style="display:none">
+            <span class="ico">🔴</span>
+            <span class="txt vacio" id="txtFin">Sin punto de fin</span>
+            <button id="btnMarcarFin" title="Elegir fin en el mapa" aria-label="Elegir fin en el mapa">🗺️</button>
+            <button id="btnUbicacionFin" title="Usar mi ubicación" aria-label="Usar mi ubicación como fin">📍</button>
+            <button id="btnBorrarFin" class="x" title="Borrar fin" aria-label="Borrar fin">×</button>
+          </div>
+          <div class="fila-opc">
+            <label class="check" for="volverInicio" title="Volver al punto de inicio"><input type="checkbox" id="volverInicio" checked />Ruta circular</label>
+            <label class="tipo" for="perfil">Tipo
+              <select id="perfil"><option value="mtb">MTB</option><option value="trekking">Trekking</option><option value="fastbike">Fastbike</option><option value="safety">Safety</option></select>
+            </label>
+          </div>
+          <div class="sec-titulo">Bajadas elegidas</div>
+          <div id="miRutaLista"></div>
+          <div id="resumenRuta"></div>
+          <button id="btnDescargarGPX" disabled style="display:none">Descargar GPX</button>
+          <div class="acciones">
+            <button id="limpiarRuta" type="button">Vaciar bajadas</button>
+            <button id="btnBorrarTodo" type="button" class="peligro" title="Quita bajadas, inicio, fin y ruta generada">Empezar de cero</button>
+          </div>
+        </div>
       </div>
     </div>
   </aside>
@@ -359,6 +326,16 @@ let perfilDatos = null, perfilGeom = null, markerPerfil = null;
 let versionRuta = 0;       // sube con cada cambio; descarta cálculos que ya no valen
 const COLOR_RUTA = "#7b1fa2"; // enlaces y contorno de las bajadas de la ruta
 
+// Panel inferior plegable (en escritorio siempre está desplegado por CSS)
+const miRutaEl = document.getElementById("miRuta");
+const btnPanelToggle = document.getElementById("btnPanelToggle");
+function setPanel(abierto) {
+  miRutaEl.classList.toggle("abierto", abierto);
+  btnPanelToggle.setAttribute("aria-expanded", String(abierto));
+  [0, 260].forEach(ms => setTimeout(() => map.resize(), ms)); // el mapa cambia de alto
+}
+btnPanelToggle.addEventListener("click", () => setPanel(!miRutaEl.classList.contains("abierto")));
+
 function cargarMiRutaGuardado() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -387,7 +364,7 @@ function renderMiRuta() {
   cont.innerHTML = "";
   let longTotal = 0, caidaTotal = 0;
   if (miRuta.length === 0) {
-    const v = document.createElement("div"); v.className = "vacio"; v.textContent = "Añade bajadas con el botón ＋"; cont.appendChild(v);
+    const v = document.createElement("div"); v.className = "vacio"; v.textContent = "Toca una bajada en el mapa y pulsa «＋ Añadir a mi ruta»"; cont.appendChild(v);
   } else {
     miRuta.forEach((id, i) => {
       const f = porId.get(id); if (!f) return;
@@ -396,13 +373,13 @@ function renderMiRuta() {
       const el = document.createElement("div"); el.className = "item";
       el.innerHTML = `<span class="num">${i + 1}</span><span class="punto" style="background:${colorDe(p)}"></span><span class="nom">${esc(p.nombre || "(sin nombre)")}</span><button class="x" title="Quitar">×</button>`;
       el.querySelector(".x").addEventListener("click", (ev) => { ev.stopPropagation(); toggleRuta(id); });
-      el.addEventListener("click", () => seleccionar(id, { fit: true }));
+      el.addEventListener("click", () => { setPanel(false); seleccionar(id, { fit: true }); });
       cont.appendChild(el);
     });
   }
   document.getElementById("miRutaContador").textContent = `${miRuta.length} bajada${miRuta.length === 1 ? "" : "s"}`;
-  document.getElementById("miRutaTotales").innerHTML = miRuta.length === 0 ? "—"
-    : `Bajadas: <strong>${fmtLong(Math.round(longTotal))}</strong><br>Caída: <strong>↓${Math.round(caidaTotal)} m</strong>`;
+  document.getElementById("miRutaTotales").textContent = miRuta.length === 0 ? "Sin bajadas todavía"
+    : `${fmtLong(Math.round(longTotal))} de bajada · ↓${Math.round(caidaTotal)} m`;
 }
 
 function actualizarBotonesRuta() {
@@ -449,6 +426,7 @@ function armarModo(cual) {
   document.getElementById("estadoRuta").textContent = modoMarcar
     ? `Haz clic en el mapa para marcar el ${modoMarcar === "inicio" ? "inicio" : "fin"}` : "";
   map.getCanvas().style.cursor = modoMarcar ? "crosshair" : "";
+  if (modoMarcar) setPanel(false);
 }
 document.getElementById("btnMarcarInicio").addEventListener("click", () => armarModo("inicio"));
 document.getElementById("btnMarcarFin").addEventListener("click", () => armarModo("fin"));
@@ -969,6 +947,7 @@ document.getElementById("btnGenerar").addEventListener("click", async () => {
   const volver = document.getElementById("volverInicio").checked;
   const fin = volver ? puntoInicio : (puntoFin || puntoInicio);
   invalidarRuta();
+  setPanel(false);
   const version = versionRuta;
   btn.disabled = true;
   estado.textContent = "Iniciando...";
