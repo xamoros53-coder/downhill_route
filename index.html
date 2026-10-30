@@ -84,7 +84,7 @@
   #perfilAlt .cab #perfilInfo { flex: 1; color: #555; font-family: ui-monospace, monospace; text-align: right; white-space: nowrap; overflow: hidden; }
   #perfilAlt .cab button { border: none; background: none; font-size: 18px; line-height: 1; color: #888; cursor: pointer; }
   #perfilAlt .cab button:hover { color: #d62f2f; }
-  #perfilGraf { height: 124px; cursor: crosshair; }
+  #perfilGraf { height: 124px; cursor: crosshair; touch-action: none; user-select: none; -webkit-user-select: none; }
   #perfilGraf .vacio { padding: 30px 14px; color: #999; font-size: 12px; }
   #ficha h3 { margin: 0 24px 6px 0; font-size: 15px; }
   #ficha table { border-collapse: collapse; }
@@ -166,14 +166,26 @@
   .fila-opc .tipo { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #555; }
   .fila-opc select { height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid #ccd3d9; font-size: 13px; background: #fff; }
   .sec-titulo { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #6b7280; margin-bottom: -4px; }
-  #miRutaLista { display: flex; flex-wrap: wrap; gap: 6px; }
+  #miRutaLista { display: flex; flex-direction: column; gap: 6px; }
   #miRutaLista .vacio { width: 100%; color: #8a939b; font-size: 12px; padding: 4px 2px; }
-  #miRutaLista .item { display: flex; align-items: center; gap: 6px; max-width: 100%; min-height: 34px; padding: 0 4px 0 9px; border-radius: 999px; background: #f1f4f6; border: 1px solid #e2e7eb; font-size: 13px; cursor: pointer; }
-  #miRutaLista .item .num { font-weight: 700; color: #8a939b; font-size: 11px; }
+  #miRutaLista .item { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 38px; padding: 0 4px 0 10px; border-radius: 12px; background: #f1f4f6; border: 1px solid #e2e7eb; font-size: 13px; cursor: pointer; }
+  #miRutaLista .item.punto-inter { background: #f6effa; border-color: #e0cdea; }
+  #miRutaLista .item .num { font-weight: 700; color: #8a939b; font-size: 11px; min-width: 14px; }
   #miRutaLista .item .punto { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-  #miRutaLista .item .nom { min-width: 0; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #miRutaLista .item .x { flex: none; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: none; color: #8a939b; font-size: 16px; cursor: pointer; }
+  #miRutaLista .item .pin { flex: none; font-size: 12px; }
+  #miRutaLista .item .nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #miRutaLista .item button { flex: none; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: none; color: #6b7580; font-size: 13px; cursor: pointer; }
+  #miRutaLista .item button:disabled { opacity: .25; cursor: default; }
+  #miRutaLista .item button.mv:not(:disabled):hover { background: #fff; color: #1f6fd1; }
+  #miRutaLista .item .x { font-size: 18px; }
   #miRutaLista .item .x:hover { color: #d62f2f; background: #fff; }
+  .btnInter { min-height: 36px; border: 1px dashed #b9a3c9; background: #faf6fd; border-radius: 8px; font-size: 12px; color: #6a1b9a; cursor: pointer; }
+  .btnInter.armado { background: #ffd400; border: 1px solid #d4b000; color: #333; }
+  #progresoZona { display: none; flex: none; height: 4px; background: #e6eaee; overflow: hidden; }
+  #progresoZona.on { display: block; }
+  #progresoZona i { display: block; height: 100%; width: 0; background: #2c7be5; transition: width .25s; }
+  #progresoZona.indet i { width: 35%; animation: progIndet 1.1s ease-in-out infinite; }
+  @keyframes progIndet { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
   #resumenRuta { font-size: 12px; color: #2c3e50; line-height: 1.5; background: #f7f8fa; border-radius: 10px; padding: 8px 10px; }
   #resumenRuta:empty { display: none; }
   #resumenRuta .sw { display: inline-block; width: 14px; height: 4px; border-radius: 2px; vertical-align: middle; margin: 0 3px 1px 6px; }
@@ -261,6 +273,7 @@
         <button id="btnGenerar" disabled>Generar ruta</button>
       </div>
       <div id="estadoRuta"></div>
+      <div id="progresoZona"><i></i></div>
       <div id="detalleWrap">
         <div id="detalle">
           <div class="puntoRuta" id="filaInicio">
@@ -284,11 +297,8 @@
               <option value="trekking">Trekking</option>
               <option value="safety">Safety (evita carreteras)</option>
               <option value="mtb">MTB</option>
-              <option value="mtb-zossebart">MTB Zossebart</option>
-              <option value="mtb-zossebart-hard">MTB Zossebart (difícil)</option>
               <option value="gravel">Gravel</option>
               <option value="fastbike">Fastbike</option>
-              <option value="fastbike-lowtraffic">Fastbike poco tráfico</option>
               <option value="fastbike-verylowtraffic">Fastbike muy poco tráfico</option>
               <option value="hiking-mountain">Senderismo de montaña</option>
               <option value="shortest">Más corto</option>
@@ -296,12 +306,13 @@
             </select>
             </label>
           </div>
-          <div class="sec-titulo">Bajadas elegidas</div>
+          <div class="sec-titulo">Ruta: bajadas y puntos (ordénalos con ▲ ▼)</div>
           <div id="miRutaLista"></div>
+          <button id="btnMarcarInter" type="button" class="btnInter">📍 Añadir punto intermedio en el mapa</button>
           <div id="resumenRuta"></div>
           <button id="btnDescargarGPX" disabled style="display:none">Descargar GPX</button>
           <div class="acciones">
-            <button id="limpiarRuta" type="button">Vaciar bajadas</button>
+            <button id="limpiarRuta" type="button">Vaciar ruta</button>
             <button id="btnBorrarTodo" type="button" class="peligro" title="Quita bajadas, inicio, fin y ruta generada">Empezar de cero</button>
           </div>
         </div>
@@ -346,7 +357,11 @@ const STORAGE_BAJADAS = "miRuta_bajadas_v2";
 const STORAGE_DESCARTADAS = "descartadas_v2";
 const STORAGE_INICIO = "miRuta_inicio_v1";
 const STORAGE_FIN = "miRuta_fin_v1";
-let miRuta = [];
+let miRuta = [];                    // ids en orden: bajadas y puntos intermedios ("wp:...")
+const puntosInter = new Map();      // id "wp:..." -> [lat, lon]
+let markersInter = [];
+const STORAGE_INTER = "miRuta_inter_v1";
+function esPunto(id) { return typeof id === "string" && id.startsWith("wp:"); }
 let puntoInicio = null;
 let puntoFin = null;
 let modoMarcar = null;
@@ -397,8 +412,10 @@ function cargarMiRutaGuardado() {
         if (b && b.f && b.f.properties && b.f.properties.perfil_cargado) { porId.set(id, b.f); tramosPorId.set(id, b.tramos || []); }
       }
     }
+    const rp = localStorage.getItem(STORAGE_INTER);
+    if (rp) for (const [id, pt] of JSON.parse(rp)) puntosInter.set(id, pt);
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) { const ids = JSON.parse(raw); if (Array.isArray(ids)) miRuta = ids.filter(id => porId.has(id)); }
+    if (raw) { const ids = JSON.parse(raw); if (Array.isArray(ids)) miRuta = ids.filter(id => porId.has(id) || puntosInter.has(id)); }
     const ri = localStorage.getItem(STORAGE_INICIO); if (ri) puntoInicio = JSON.parse(ri);
     const rf = localStorage.getItem(STORAGE_FIN); if (rf) puntoFin = JSON.parse(rf);
   } catch (e) {}
@@ -410,6 +427,8 @@ function guardarMiRuta() {
     const o = {};
     for (const id of miRuta) { const f = porId.get(id); if (f) o[id] = { f, tramos: tramosPorId.get(id) || [] }; }
     localStorage.setItem(STORAGE_BAJADAS, JSON.stringify(o));
+    for (const id of [...puntosInter.keys()]) if (!miRuta.includes(id)) puntosInter.delete(id);
+    localStorage.setItem(STORAGE_INTER, JSON.stringify([...puntosInter]));
   } catch (e) {}
 }
 function guardarPuntos() {
@@ -441,27 +460,66 @@ async function toggleRuta(id) {
   guardarMiRuta(); renderMiRuta(); actualizarBotonesRuta(); actualizarPopupBoton(); actualizarBotonGenerar();
 }
 
+function moverEnRuta(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= miRuta.length) return;
+  [miRuta[i], miRuta[j]] = [miRuta[j], miRuta[i]];
+  guardarMiRuta(); renderMiRuta();
+}
+
+function actualizarMarcadoresInter() {
+  markersInter.forEach(m => m.remove()); markersInter = [];
+  let n = 0;
+  for (const id of miRuta) {
+    if (!esPunto(id)) continue;
+    const pt = puntosInter.get(id); if (!pt) continue;
+    n++;
+    const el = document.createElement("div");
+    el.textContent = n;
+    el.style.cssText = "width:24px;height:24px;border-radius:50%;background:#7b1fa2;color:#fff;font:700 12px/20px system-ui,sans-serif;text-align:center;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.4)";
+    markersInter.push(new maplibregl.Marker({ element: el }).setLngLat([pt[1], pt[0]]).addTo(map));
+  }
+}
+
 function renderMiRuta() {
   const cont = document.getElementById("miRutaLista");
   cont.innerHTML = "";
-  let longTotal = 0, caidaTotal = 0;
+  let longTotal = 0, caidaTotal = 0, nBaj = 0, nPun = 0;
   if (miRuta.length === 0) {
     const v = document.createElement("div"); v.className = "vacio"; v.textContent = "Carga una zona, toca una bajada y pulsa «＋ Añadir a mi ruta»"; cont.appendChild(v);
   } else {
     miRuta.forEach((id, i) => {
-      const f = porId.get(id); if (!f) return;
-      const p = f.properties;
-      longTotal += p.longitud_m || 0; caidaTotal += p.caida_m || 0;
-      const el = document.createElement("div"); el.className = "item";
-      el.innerHTML = `<span class="num">${i + 1}</span><span class="punto" style="background:${colorDe(p)}"></span><span class="nom">${esc(p.nombre || "(sin nombre)")}</span><button class="x" title="Quitar">×</button>`;
+      const esP = esPunto(id);
+      const f = esP ? null : porId.get(id);
+      if (!esP && !f) return;
+      const el = document.createElement("div"); el.className = "item" + (esP ? " punto-inter" : "");
+      let marca, nombre;
+      if (esP) { nPun++; marca = `<span class="pin">📍</span>`; nombre = `Punto intermedio ${nPun}`; }
+      else {
+        nBaj++;
+        const p = f.properties;
+        longTotal += p.longitud_m || 0; caidaTotal += p.caida_m || 0;
+        marca = `<span class="punto" style="background:${colorDe(p)}"></span>`; nombre = p.nombre || "(sin nombre)";
+      }
+      el.innerHTML = `<span class="num">${i + 1}</span>${marca}<span class="nom">${esc(nombre)}</span>`
+        + `<button class="mv up" title="Subir" aria-label="Subir"${i === 0 ? " disabled" : ""}>▲</button>`
+        + `<button class="mv down" title="Bajar" aria-label="Bajar"${i === miRuta.length - 1 ? " disabled" : ""}>▼</button>`
+        + `<button class="x" title="Quitar" aria-label="Quitar">×</button>`;
+      el.querySelector(".up").addEventListener("click", (ev) => { ev.stopPropagation(); moverEnRuta(i, -1); });
+      el.querySelector(".down").addEventListener("click", (ev) => { ev.stopPropagation(); moverEnRuta(i, 1); });
       el.querySelector(".x").addEventListener("click", (ev) => { ev.stopPropagation(); toggleRuta(id); });
-      el.addEventListener("click", () => { setPanel(false); seleccionar(id, { fit: true }); });
+      el.addEventListener("click", () => {
+        setPanel(false);
+        if (esP) { const pt = puntosInter.get(id); if (pt) map.easeTo({ center: [pt[1], pt[0]], zoom: Math.max(map.getZoom(), 14), duration: 500 }); }
+        else seleccionar(id, { fit: true });
+      });
       cont.appendChild(el);
     });
   }
-  document.getElementById("miRutaContador").textContent = `${miRuta.length} bajada${miRuta.length === 1 ? "" : "s"}`;
-  document.getElementById("miRutaTotales").textContent = miRuta.length === 0 ? "Sin bajadas todavía"
-    : `${fmtLong(Math.round(longTotal))} de bajada · ↓${Math.round(caidaTotal)} m`;
+  document.getElementById("miRutaContador").textContent = `${nBaj} bajada${nBaj === 1 ? "" : "s"}`;
+  document.getElementById("miRutaTotales").textContent = nBaj === 0 ? (nPun ? `${nPun} punto${nPun === 1 ? "" : "s"} intermedio${nPun === 1 ? "" : "s"}` : "Sin bajadas todavía")
+    : `${fmtLong(Math.round(longTotal))} de bajada · ↓${Math.round(caidaTotal)} m` + (nPun ? ` · ${nPun} punto${nPun === 1 ? "" : "s"}` : "");
+  actualizarMarcadoresInter();
 }
 
 function actualizarBotonesRuta() {
@@ -498,7 +556,7 @@ function actualizarUIPuntos() {
   if (puntoFin && !volver) markerFin = new maplibregl.Marker({ color: "#d62f2f" }).setLngLat([puntoFin[1], puntoFin[0]]).addTo(map);
   actualizarBotonGenerar();
 }
-function actualizarBotonGenerar() { document.getElementById("btnGenerar").disabled = miRuta.length === 0; }
+function actualizarBotonGenerar() { document.getElementById("btnGenerar").disabled = !miRuta.some(id => !esPunto(id)); }
 document.getElementById("volverInicio").addEventListener("change", () => { invalidarRuta(); actualizarUIPuntos(); });
 document.getElementById("perfil").addEventListener("change", (ev) => {
   const sel = ev.target;
@@ -522,13 +580,15 @@ function armarModo(cual) {
   modoMarcar = (modoMarcar === cual) ? null : cual;
   document.getElementById("btnMarcarInicio").classList.toggle("armado", modoMarcar === "inicio");
   document.getElementById("btnMarcarFin").classList.toggle("armado", modoMarcar === "fin");
+  document.getElementById("btnMarcarInter").classList.toggle("armado", modoMarcar === "inter");
   document.getElementById("estadoRuta").textContent = modoMarcar
-    ? `Haz clic en el mapa para marcar el ${modoMarcar === "inicio" ? "inicio" : "fin"}` : "";
+    ? `Toca en el mapa para marcar ${modoMarcar === "inicio" ? "el inicio" : modoMarcar === "fin" ? "el fin" : "un punto intermedio"}` : "";
   map.getCanvas().style.cursor = modoMarcar ? "crosshair" : "";
   if (modoMarcar) setPanel(false);
 }
 document.getElementById("btnMarcarInicio").addEventListener("click", () => armarModo("inicio"));
 document.getElementById("btnMarcarFin").addEventListener("click", () => armarModo("fin"));
+document.getElementById("btnMarcarInter").addEventListener("click", () => armarModo("inter"));
 document.getElementById("btnBorrarInicio").addEventListener("click", () => { puntoInicio = null; guardarPuntos(); actualizarUIPuntos(); });
 document.getElementById("btnBorrarFin").addEventListener("click", () => { puntoFin = null; guardarPuntos(); actualizarUIPuntos(); });
 
@@ -551,6 +611,12 @@ document.getElementById("btnUbicacionFin").addEventListener("click", () => usarU
 map.on("click", (e) => {
   if (!modoMarcar) return;
   const lat = e.lngLat.lat, lon = e.lngLat.lng;
+  if (modoMarcar === "inter") {
+    const id = "wp:" + Date.now();
+    puntosInter.set(id, [lat, lon]); miRuta.push(id);
+    guardarMiRuta(); armarModo("inter"); renderMiRuta(); actualizarBotonGenerar();
+    return;
+  }
   if (modoMarcar === "inicio") puntoInicio = [lat, lon]; else puntoFin = [lat, lon];
   guardarPuntos(); armarModo(modoMarcar); actualizarUIPuntos();
 });
@@ -596,6 +662,26 @@ function actualizarMapa() {
   if (sp) sp.setData(pt);
 }
 
+// Barra de progreso + tiempo transcurrido mientras se carga la zona (frac = null => barra indeterminada)
+function iniciarProgreso(btn) {
+  const barra = document.getElementById("progresoZona"), relleno = barra.firstElementChild;
+  const t0 = Date.now(), textoBtn = btn.textContent;
+  let msg = "", frac = null;
+  barra.classList.add("on");
+  function pinta() {
+    const seg = Math.round((Date.now() - t0) / 1000);
+    setEstado(`${msg} · ${seg} s`);
+    btn.textContent = frac === null ? `Cargando… ${seg} s` : `Cargando… ${Math.round(frac * 100)} %`;
+    barra.classList.toggle("indet", frac === null);
+    relleno.style.width = frac === null ? "" : (frac * 100).toFixed(0) + "%";
+  }
+  const iv = setInterval(pinta, 500);
+  return {
+    set(m, f) { msg = m; frac = (typeof f === "number" && isFinite(f)) ? Math.max(0, Math.min(1, f)) : null; pinta(); },
+    fin() { clearInterval(iv); barra.classList.remove("on", "indet"); relleno.style.width = "0"; btn.textContent = textoBtn; }
+  };
+}
+
 // ---- Cargar la zona visible: senderos MTB de OSM + sentido por la elevación de los extremos ----
 document.getElementById("btnZona").addEventListener("click", cargarZona);
 
@@ -611,17 +697,19 @@ async function cargarZona() {
   cargandoZona = true;
   const btn = document.getElementById("btnZona");
   btn.disabled = true;
+  const prog = iniciarProgreso(btn);
   try {
-    const cand = await OSM.descargarZona(bbox, setEstado);
+    prog.set("Descargando senderos de OpenStreetMap…");
+    const cand = await OSM.descargarZona(bbox, (m, f) => prog.set(m, f));
     const nuevos = cand.filter(c => !porId.has(c.id) && !descartadas.has(c.id));
     if (!nuevos.length) {
       setEstado(cand.length ? "Todas las bajadas de esta zona ya estaban cargadas." : "No hay senderos con etiquetas MTB en esta zona.");
       return;
     }
-    setEstado(`Comprobando el sentido de ${nuevos.length} bajadas…`);
+    prog.set(`Comprobando el sentido de ${nuevos.length} bajadas…`);
     const extremos = [];
     for (const c of nuevos) extremos.push(c.pts[0], c.pts[c.pts.length - 1]);
-    await Elev.obtener(extremos, (hecho, total) => setEstado(`Elevación de los extremos: ${hecho}/${total}…`));
+    await Elev.obtener(extremos, (hecho, total) => prog.set(`Elevación de los extremos: ${hecho}/${total}`, total ? hecho / total : null));
     let validas = 0, dudosas = 0;
     for (const c of nuevos) {
       const ini = c.pts[0], fin = c.pts[c.pts.length - 1];
@@ -637,6 +725,7 @@ async function cargarZona() {
     console.error(e);
     setEstado("Error: " + e.message);
   } finally {
+    prog.fin();
     cargandoZona = false;
     btn.disabled = false;
   }
@@ -1025,11 +1114,12 @@ function hoverPerfil(ev) {
     `km ${(q.d / 1000).toFixed(2).replace(".", ",")} · ${Math.round(q.ele)} m` + (pend !== null ? ` · ${pend > 0 ? "+" : pend < 0 ? "−" : ""}${Math.abs(pend).toFixed(0)} %` : "");
   if (!markerPerfil) {
     const el = document.createElement("div");
-    el.style.cssText = "width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid #1a1a1a;box-shadow:0 0 0 2px #fff;pointer-events:none";
+    el.style.cssText = "width:18px;height:18px;border-radius:50%;background:#ffd400;border:3px solid #1a1a1a;box-shadow:0 0 0 2px #fff;pointer-events:none;z-index:5";
     markerPerfil = new maplibregl.Marker({ element: el }).setLngLat([q.lon, q.lat]).addTo(map);
   }
   markerPerfil.setLngLat([q.lon, q.lat]);
   markerPerfil.getElement().style.display = "";
+  if (ev.pointerType !== "mouse" && !map.getBounds().contains([q.lon, q.lat])) map.panTo([q.lon, q.lat], { duration: 0 });   // en móvil, que la bola no se salga de la pantalla
 }
 function salirPerfil() {
   const linea = document.getElementById("pfLinea"), punto = document.getElementById("pfPunto");
@@ -1038,8 +1128,13 @@ function salirPerfil() {
   document.getElementById("perfilInfo").textContent = "";
   if (markerPerfil) markerPerfil.getElement().style.display = "none";
 }
-document.getElementById("perfilGraf").addEventListener("pointermove", hoverPerfil);
-document.getElementById("perfilGraf").addEventListener("pointerleave", salirPerfil);
+const perfilGrafEl = document.getElementById("perfilGraf");
+perfilGrafEl.addEventListener("pointerdown", (ev) => {
+  try { perfilGrafEl.setPointerCapture(ev.pointerId); } catch (e) {}   // sigue el dedo aunque se salga del gráfico
+  hoverPerfil(ev);
+});
+perfilGrafEl.addEventListener("pointermove", hoverPerfil);
+perfilGrafEl.addEventListener("pointerleave", (ev) => { if (ev.pointerType === "mouse") salirPerfil(); });   // en táctil la bola se queda al soltar
 document.getElementById("perfilCerrar").addEventListener("click", () => {
   document.getElementById("mapwrap").classList.remove("conPerfil"); salirPerfil();
 });
@@ -1062,8 +1157,13 @@ function invalidarRuta() {
 
 document.getElementById("btnGenerar").addEventListener("click", async () => {
   if (rutaGenerada) { descargarRuta(); return; }
-  if (miRuta.length === 0) return;
-  const seleccion = miRuta.map(id => porId.get(id)).filter(Boolean);
+  if (!miRuta.some(id => !esPunto(id))) return;
+  let nPunto = 0;
+  const seleccion = miRuta.map(id => {
+    if (esPunto(id)) { const pt = puntosInter.get(id); return pt ? { punto: true, lat: pt[0], lon: pt[1], nombre: `Punto ${++nPunto}` } : null; }
+    return porId.get(id);
+  }).filter(Boolean);
+  const soloBajadas = seleccion.filter(x => !x.punto);
   const perfil = document.getElementById("perfil").value;
   const btn = document.getElementById("btnGenerar");
   const estado = document.getElementById("estadoRuta");
@@ -1080,7 +1180,7 @@ document.getElementById("btnGenerar").addEventListener("click", async () => {
     if (version !== versionRuta) { estado.textContent = "La selección cambió mientras se calculaba. Vuelve a generar."; return; }
     rutaGenerada = r;
     let bi = 0;
-    r.segmentos.forEach(sg => { sg.color = sg.tipo === "bajada" ? colorDe(seleccion[bi++].properties) : COLOR_RUTA; });
+    r.segmentos.forEach(sg => { sg.color = sg.tipo === "bajada" ? colorDe(soloBajadas[bi++].properties) : COLOR_RUTA; });
     dibujarRuta(r.segmentos);
     mostrarPerfil(r.segmentos, r.stats);
     mostrarResumenRuta(r.stats);

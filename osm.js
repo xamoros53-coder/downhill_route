@@ -23,7 +23,9 @@
   const MIN_CAIDA_M = 8;
   const MIN_PEND_PCT = 2;
   const CACHE_TTL_MS = 24 * 3600 * 1000;
-  const TIMEOUT_MS = 90000;
+  const TIMEOUT_MS = 60000;        // espera máxima por servidor
+  const ESCALONADO_MS = 7000;      // si un servidor no responde en este tiempo, se lanza también el siguiente
+  const MAX_ZONAS_CACHE = 4;       // zonas recientes que se guardan para no volver a descargarlas
 
   // Degradado entre dos colores contiguos
   const BLEND_M = 60;
@@ -108,30 +110,70 @@
     } catch (e) { /* sin caché, no pasa nada */ }
   }
 
+  // Zonas recientes en caché: si la zona pedida cabe dentro de una ya descargada, no se vuelve a pedir nada.
+  const contiene = (g, p) => g[0] <= p[0] && g[1] <= p[1] && g[2] >= p[2] && g[3] >= p[3];
+  async function buscarCache(bb) {
+    const lista = (await cacheGet("zonas")) || [];
+    const ahora = Date.now();
+    return lista.find(z => ahora - z.t < CACHE_TTL_MS && contiene(z.bbox, bb)) || null;
+  }
+  async function guardarCache(bb, data) {
+    const ahora = Date.now();
+    let lista = (await cacheGet("zonas")) || [];
+    lista = lista.filter(z => ahora - z.t < CACHE_TTL_MS && !contiene(bb, z.bbox));   // las que quedan dentro de la nueva sobran
+    lista.unshift({ bbox: bb, t: ahora, data });
+    await cacheSet("zonas", lista.slice(0, MAX_ZONAS_CACHE));
+  }
+  // Se queda con los tramos que tocan la zona pedida (la zona en caché puede ser mayor)
+  function recortarData(data, bb) {
+    const dentro = p => p.lat >= bb[0] && p.lat <= bb[2] && p.lon >= bb[1] && p.lon <= bb[3];
+    return { elements: (data.elements || []).filter(el => el.type === "way" && el.geometry && el.geometry.some(dentro)) };
+  }
+
   // ---------------------------------------------------------------------------
   // 1. DESCARGA DE OVERPASS
   // ---------------------------------------------------------------------------
-  async function consultarOverpass(query, estado) {
-    let ultimo = null;
-    for (const url of OVERPASS_URLS) {
-      const host = new URL(url).hostname;
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
-      try {
-        estado(`Descargando senderos de OpenStreetMap (${host})…`);
-        const r = await fetch(url, { method: "POST", body: new URLSearchParams({ data: query }), signal: ctrl.signal });
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        const data = await r.json();
-        if (data.remark && /runtime error|timed out|out of memory/i.test(data.remark)) throw new Error(data.remark);
-        return data;
-      } catch (e) {
-        ultimo = e.name === "AbortError" ? new Error("tiempo de espera agotado") : e;
-        console.warn("Overpass", host, ultimo);
-      } finally {
-        clearTimeout(timer);
+  // Pide a los servidores en carrera: se empieza por el primero y, si tarda más de ESCALONADO_MS
+  // (o falla), se lanza el siguiente sin esperar. Gana el primero que responde y se cancelan los demás.
+  function consultarOverpass(query, estado) {
+    const body = new URLSearchParams({ data: query });
+    return new Promise((resolve, reject) => {
+      let terminado = false, lanzados = 0, fallos = 0, ultimo = null;
+      const ctrls = [], timers = [];
+      function finalizar() {
+        terminado = true;
+        timers.forEach(clearTimeout);
+        ctrls.forEach(c => { try { c.abort(); } catch (e) {} });
       }
-    }
-    throw new Error("Overpass no responde (" + (ultimo ? ultimo.message : "sin detalle") + "). Prueba con una zona más pequeña o inténtalo en unos minutos.");
+      function lanzar() {
+        if (terminado || lanzados >= OVERPASS_URLS.length) return;
+        const url = OVERPASS_URLS[lanzados++], host = new URL(url).hostname;
+        const ctrl = new AbortController(); ctrls.push(ctrl);
+        timers.push(setTimeout(() => ctrl.abort(), TIMEOUT_MS));
+        timers.push(setTimeout(lanzar, ESCALONADO_MS));
+        estado(`Descargando senderos de OpenStreetMap (${host})…`);
+        (async () => {
+          const r = await fetch(url, { method: "POST", body, signal: ctrl.signal });
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          const data = await r.json();
+          if (data.remark && /runtime error|timed out|out of memory/i.test(data.remark)) throw new Error(data.remark);
+          return data;
+        })().then(data => {
+          if (terminado) return;
+          finalizar(); resolve(data);
+        }).catch(e => {
+          if (terminado) return;
+          ultimo = e.name === "AbortError" ? new Error("tiempo de espera agotado") : e;
+          console.warn("Overpass", host, ultimo);
+          fallos++;
+          if (fallos >= OVERPASS_URLS.length) {
+            finalizar();
+            reject(new Error("Overpass no responde (" + ultimo.message + "). Prueba con una zona más pequeña o inténtalo en unos minutos."));
+          } else lanzar();   // este ha fallado: se prueba el siguiente ya
+        });
+      }
+      lanzar();
+    });
   }
 
   // Pistas de coche: caminos anchos y firmes para vehículos que llevan mtb:scale=0/1 por defecto
@@ -292,21 +334,21 @@
     const estado = onEstado || (() => {});
     const s = Math.floor(bbox[0] * 1e4) / 1e4, w = Math.floor(bbox[1] * 1e4) / 1e4;
     const n = Math.ceil(bbox[2] * 1e4) / 1e4, e = Math.ceil(bbox[3] * 1e4) / 1e4;
-    const clave = `${s},${w},${n},${e}`;
+    const bb = [s, w, n, e];
 
     let data = null;
-    const guardado = await cacheGet("ultima");
-    if (guardado && guardado.bbox === clave && Date.now() - guardado.t < CACHE_TTL_MS) {
-      estado("Usando los senderos de esta zona descargados hace un momento…");
-      data = guardado.data;
+    const guardado = await buscarCache(bb);
+    if (guardado) {
+      estado("Usando los senderos de esta zona descargados hace poco…");
+      data = guardado.bbox.every((v, i) => v === bb[i]) ? guardado.data : recortarData(guardado.data, bb);
     } else {
       const b = `${s},${w},${n},${e}`;
       const query = `[out:json][timeout:60];(`
         + `way["highway"~"^(path|track)$"]["mtb:scale"](${b});`
         + `way["highway"~"^(path|track)$"]["mtb:name"](${b});`
-        + `);out body geom;`;
+        + `);out body geom qt;`;
       data = await consultarOverpass(query, estado);
-      cacheSet("ultima", { bbox: clave, t: Date.now(), data });
+      guardarCache(bb, data);   // sin await: no hace falta esperar para seguir
     }
     const { ways, pistas } = tramosValidos(data);
     estado(`${ways.length} tramos con etiquetas MTB (${pistas} pistas de coche descartadas). Agrupando…`);

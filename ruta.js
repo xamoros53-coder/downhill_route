@@ -206,14 +206,17 @@ function calcularEstadisticas(segmentos) {
 }
 
 async function generarRutaGPX(seleccion, puntoInicio, puntoFin, perfil, onEstado, todasLasBajadas) {
-  if (seleccion.length === 0) throw new Error("No hay bajadas seleccionadas");
+  // "seleccion" es la lista ordenada de la ruta: bajadas (features GeoJSON)
+  // y puntos intermedios ({ punto: true, lat, lon, nombre }).
+  const bajadas = seleccion.filter(x => !x.punto);
+  if (bajadas.length === 0) throw new Error("No hay bajadas seleccionadas");
 
   const estado = onEstado || (() => {});
   const segmentos = [];
   const waypoints = [];
 
   // Nogos de TODAS las bajadas descargadas (si no se pasan, solo las seleccionadas)
-  const universo = (todasLasBajadas && todasLasBajadas.length) ? todasLasBajadas : seleccion;
+  const universo = (todasLasBajadas && todasLasBajadas.length) ? todasLasBajadas : bajadas;
   const nogoGlobal = universo.flatMap(obtenerNogosDeBajada);
 
   async function enlace(desde, hasta, etiqueta) {
@@ -253,26 +256,35 @@ async function generarRutaGPX(seleccion, puntoInicio, puntoFin, perfil, onEstado
     segmentos.push({ tipo: "enlace", nombre: etiqueta, puntos: pts, conNogo });
   }
 
+  // Se recorre la lista en orden; "pos" es donde está el ciclista en cada momento
+  let pos = null;
+  let nEnlace = 0, nBajada = 0;
+
   if (puntoInicio) {
-    await enlace(puntoInicio, puntoInicioBajada(seleccion[0]), "enlace inicial");
+    pos = puntoInicio;
     waypoints.push({ lat: puntoInicio[0], lon: puntoInicio[1], name: "Inicio ruta" });
   }
 
-  for (let i = 0; i < seleccion.length; i++) {
-    const f = seleccion[i];
-    const nombre = f.properties.nombre || `Bajada ${i + 1}`;
-    const ini = puntoInicioBajada(f);
-    waypoints.push({ lat: ini[0], lon: ini[1], name: `Inicio ${nombre}` });
-    segmentos.push({ tipo: "bajada", nombre, puntos: geometriaBajada(f) });
-    estado(`Bajada ${i + 1}/${seleccion.length}: ${nombre}`);
-
-    if (i < seleccion.length - 1) {
-      await enlace(puntoFinBajada(f), puntoInicioBajada(seleccion[i + 1]), `enlace ${i + 1}->${i + 2}`);
+  for (const item of seleccion) {
+    if (item.punto) {
+      const destino = [item.lat, item.lon];
+      if (pos) await enlace(pos, destino, pos === puntoInicio ? "enlace inicial" : `enlace ${++nEnlace}`);
+      waypoints.push({ lat: item.lat, lon: item.lon, name: item.nombre || "Punto intermedio" });
+      pos = destino;
+      continue;
     }
+    nBajada++;
+    const nombre = item.properties.nombre || `Bajada ${nBajada}`;
+    const ini = puntoInicioBajada(item);
+    if (pos) await enlace(pos, ini, pos === puntoInicio ? "enlace inicial" : `enlace ${++nEnlace}`);
+    waypoints.push({ lat: ini[0], lon: ini[1], name: `Inicio ${nombre}` });
+    segmentos.push({ tipo: "bajada", nombre, puntos: geometriaBajada(item) });
+    estado(`Bajada ${nBajada}/${bajadas.length}: ${nombre}`);
+    pos = puntoFinBajada(item);
   }
 
-  if (puntoFin) {
-    await enlace(puntoFinBajada(seleccion[seleccion.length - 1]), puntoFin, "enlace final");
+  if (puntoFin && pos) {
+    await enlace(pos, puntoFin, "enlace final");
     waypoints.push({ lat: puntoFin[0], lon: puntoFin[1], name: "Fin ruta" });
   }
 

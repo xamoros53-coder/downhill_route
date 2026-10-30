@@ -8,7 +8,8 @@
 
   const URL_ELEV = "https://api.open-meteo.com/v1/elevation";
   const LOTE = 100;              // máximo de coordenadas por petición
-  const PAUSA_MS = 250;          // pausa entre lotes
+  const PAUSA_MS = 150;          // pausa entre lotes de un mismo hilo
+  const CONCURRENCIA = 3;        // lotes pedidos a la vez (si Open-Meteo responde 429, baja este valor)
   const REINTENTOS = 5;
   const PASO_M = 30;             // distancia entre puntos del perfil
   const VENTANA_SUAVIZADO = 5;
@@ -95,16 +96,28 @@
       const k = clave(lat, lon);
       if (!cache.has(k) && !vistos.has(k)) { vistos.add(k); faltan.push([lat, lon, k]); }
     }
-    for (let i = 0; i < faltan.length; i += LOTE) {
-      const lote = faltan.slice(i, i + LOTE);
-      const vals = await pedirLote(lote);
-      lote.forEach((p, j) => {
-        if (typeof vals[j] === "number" && Number.isFinite(vals[j])) cache.set(p[2], vals[j]);
-      });
-      guardarCache();
-      if (onProgreso) onProgreso(Math.min(i + LOTE, faltan.length), faltan.length);
-      if (i + LOTE < faltan.length) await dormir(PAUSA_MS);
+    const lotes = [];
+    for (let i = 0; i < faltan.length; i += LOTE) lotes.push(faltan.slice(i, i + LOTE));
+    let siguiente = 0, hechos = 0, error = null;
+    async function hilo() {
+      while (!error) {
+        const idx = siguiente++;
+        if (idx >= lotes.length) return;
+        const lote = lotes[idx];
+        try {
+          const vals = await pedirLote(lote);
+          lote.forEach((p, j) => {
+            if (typeof vals[j] === "number" && Number.isFinite(vals[j])) cache.set(p[2], vals[j]);
+          });
+          guardarCache();
+          hechos += lote.length;
+          if (onProgreso) onProgreso(hechos, faltan.length);
+        } catch (e) { error = e; return; }
+        if (siguiente < lotes.length) await dormir(PAUSA_MS);
+      }
     }
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCIA, lotes.length) }, hilo));
+    if (error) throw error;
   }
 
   const ele = (lat, lon) => cache.get(clave(lat, lon));
