@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Ride Planner · cabrils</title>
+<title>Ride Planner</title>
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
 <style>
   :root {
@@ -206,6 +206,20 @@
     #busquedaPanel { margin-top: 6px; }
     #busquedaResultados { max-height: 150px; }
   }
+
+  /* ===== Cargar zona ===== */
+  #btnZona {
+    position: absolute; top: 12px; left: 66px; z-index: 9; height: 46px; padding: 0 16px;
+    border: 0; border-radius: 14px; background: #2c3e50; color: #fff; font-size: 14px; font-weight: 650;
+    box-shadow: 0 2px 12px rgba(0,0,0,.28); cursor: pointer; touch-action: manipulation;
+  }
+  #btnZona:hover { background: #1a252f; }
+  #btnZona:disabled { background: #7d8a96; cursor: progress; }
+  #btnDescargarMapa { top: 66px; }
+  @media (max-width: 720px) {
+    #btnZona { top: 10px; left: 62px; height: 44px; padding: 0 14px; }
+    #btnDescargarMapa { top: 62px; }
+  }
 </style>
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="64x64" href="./icons/favicon-64.png">
@@ -226,6 +240,7 @@
       </div>
     </div>
     <button id="btnDescargarMapa">⬇ Descargar GPX</button>
+    <button id="btnZona" type="button" title="Descarga las bajadas MTB de OpenStreetMap que se ven en el mapa">Cargar esta zona</button>
     <div id="ficha"></div>
     <div id="perfilAlt">
       <div class="cab"><span id="perfilResumen"></span><span id="perfilInfo"></span><button id="perfilCerrar" title="Ocultar perfil">×</button></div>
@@ -233,13 +248,6 @@
     </div>
   </div>
   <aside id="panel">
-    <header>
-      <h1>Ride Planner · cabrils</h1>
-      <div class="sub" id="contador">Cargando…</div>
-    </header>
-    <div id="filtros"></div>
-    <div id="lista"></div>
-
     <div id="miRuta">
       <div id="barraRuta">
         <span class="grip"></span>
@@ -272,7 +280,20 @@
           <div class="fila-opc">
             <label class="check" for="volverInicio" title="Volver al punto de inicio"><input type="checkbox" id="volverInicio" checked />Ruta circular</label>
             <label class="tipo" for="perfil">Tipo
-              <select id="perfil"><option value="mtb">MTB</option><option value="trekking">Trekking</option><option value="fastbike">Fastbike</option><option value="safety">Safety</option></select>
+			<select id="perfil">
+              <option value="trekking">Trekking</option>
+              <option value="safety">Safety (evita carreteras)</option>
+              <option value="mtb">MTB</option>
+              <option value="mtb-zossebart">MTB Zossebart</option>
+              <option value="mtb-zossebart-hard">MTB Zossebart (difícil)</option>
+              <option value="gravel">Gravel</option>
+              <option value="fastbike">Fastbike</option>
+              <option value="fastbike-lowtraffic">Fastbike poco tráfico</option>
+              <option value="fastbike-verylowtraffic">Fastbike muy poco tráfico</option>
+              <option value="hiking-mountain">Senderismo de montaña</option>
+              <option value="shortest">Más corto</option>
+              <option value="__otro__">Otro (escribir nombre)…</option>
+            </select>
             </label>
           </div>
           <div class="sec-titulo">Bajadas elegidas</div>
@@ -290,6 +311,8 @@
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="osm.js"></script>
+<script src="elevacion.js"></script>
 <script src="ruta.js"></script>
 <script>
 const COLORES = { verde: "#2e9e4f", azul: "#1f6fd1", rojo: "#d62f2f", negro: "#1a1a1a", sin: "#9e9e9e" };
@@ -303,18 +326,24 @@ const map = new maplibregl.Map({
     layers: [{ id: "osm", type: "raster", source: "osm" }]
   },
   center: [2.33, 41.52],
-  zoom: 12
+  zoom: 12,
+  customAttribution: 'Elevación: Copernicus DEM vía <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>'
 });
 
 map.addControl(new maplibregl.NavigationControl(), "top-right");
 map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-right");
 
-let features = [];
-const porId = new Map();
-const activos = { color: new Set(CATS), soloOsm: false };
+let features = [];                 // bajadas cargadas (se rehace en actualizarMapa)
+const porId = new Map();           // id -> feature de la bajada
+const tramosPorId = new Map();     // id -> trozos coloreados para dibujarla
+let descartadas = new Set();       // ids que el perfil completo ha desmentido
 let seleccionada = null;
+let cargandoZona = false;
+const perfilesEnCurso = new Map(); // id -> Promise (no se pide dos veces el mismo perfil)
 
-const STORAGE_KEY = "miRuta_v1";
+const STORAGE_KEY = "miRuta_v2";
+const STORAGE_BAJADAS = "miRuta_bajadas_v2";
+const STORAGE_DESCARTADAS = "descartadas_v2";
 const STORAGE_INICIO = "miRuta_inicio_v1";
 const STORAGE_FIN = "miRuta_fin_v1";
 let miRuta = [];
@@ -359,13 +388,30 @@ barraRutaEl.addEventListener("click", (e) => {                       // toque en
 
 function cargarMiRutaGuardado() {
   try {
+    const rd = localStorage.getItem(STORAGE_DESCARTADAS);
+    if (rd) descartadas = new Set(JSON.parse(rd));
+    // Las bajadas de la ruta se guardan enteras (con su perfil): sobreviven a un refresco sin volver a descargar la zona
+    const rb = localStorage.getItem(STORAGE_BAJADAS);
+    if (rb) {
+      for (const [id, b] of Object.entries(JSON.parse(rb))) {
+        if (b && b.f && b.f.properties && b.f.properties.perfil_cargado) { porId.set(id, b.f); tramosPorId.set(id, b.tramos || []); }
+      }
+    }
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) { const ids = JSON.parse(raw); if (Array.isArray(ids)) miRuta = ids.filter(id => porId.has(id)); }
     const ri = localStorage.getItem(STORAGE_INICIO); if (ri) puntoInicio = JSON.parse(ri);
     const rf = localStorage.getItem(STORAGE_FIN); if (rf) puntoFin = JSON.parse(rf);
   } catch (e) {}
 }
-function guardarMiRuta() { invalidarRuta(); try { localStorage.setItem(STORAGE_KEY, JSON.stringify(miRuta)); } catch (e) {} }
+function guardarMiRuta() {
+  invalidarRuta();
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(miRuta));
+    const o = {};
+    for (const id of miRuta) { const f = porId.get(id); if (f) o[id] = { f, tramos: tramosPorId.get(id) || [] }; }
+    localStorage.setItem(STORAGE_BAJADAS, JSON.stringify(o));
+  } catch (e) {}
+}
 function guardarPuntos() {
   invalidarRuta();
   try {
@@ -374,9 +420,24 @@ function guardarPuntos() {
   } catch (e) {}
 }
 function estaEnRuta(id) { return miRuta.includes(id); }
-function toggleRuta(id) {
+async function toggleRuta(id) {
   const i = miRuta.indexOf(id);
-  if (i >= 0) miRuta.splice(i, 1); else miRuta.push(id);
+  if (i >= 0) {
+    miRuta.splice(i, 1);
+  } else {
+    const f = porId.get(id); if (!f) return;
+    if (!f.properties.perfil_cargado) {   // el perfil hace falta para la ruta: se pide al añadir
+      const btn = document.getElementById("popupAdd");
+      if (btn && btn.dataset.id === id) { btn.disabled = true; btn.textContent = "Calculando perfil…"; }
+      setEstado(`Calculando el perfil de «${f.properties.nombre || "bajada"}»…`);
+      let ok = false;
+      try { ok = await asegurarPerfil(id); }
+      catch (e) { setEstado("No se pudo calcular el perfil: " + e.message); actualizarPopupBoton(); return; }
+      if (!ok) { actualizarPopupBoton(); return; }   // retirada: asegurarPerfil ya avisó
+      setEstado("");
+    }
+    if (!miRuta.includes(id)) miRuta.push(id);
+  }
   guardarMiRuta(); renderMiRuta(); actualizarBotonesRuta(); actualizarPopupBoton(); actualizarBotonGenerar();
 }
 
@@ -385,7 +446,7 @@ function renderMiRuta() {
   cont.innerHTML = "";
   let longTotal = 0, caidaTotal = 0;
   if (miRuta.length === 0) {
-    const v = document.createElement("div"); v.className = "vacio"; v.textContent = "Toca una bajada en el mapa y pulsa «＋ Añadir a mi ruta»"; cont.appendChild(v);
+    const v = document.createElement("div"); v.className = "vacio"; v.textContent = "Carga una zona, toca una bajada y pulsa «＋ Añadir a mi ruta»"; cont.appendChild(v);
   } else {
     miRuta.forEach((id, i) => {
       const f = porId.get(id); if (!f) return;
@@ -414,6 +475,7 @@ function actualizarBotonesRuta() {
 function actualizarPopupBoton() {
   const btn = document.getElementById("popupAdd"); if (!btn) return;
   const dentro = estaEnRuta(btn.dataset.id);
+  btn.disabled = false;
   btn.classList.toggle("in", dentro);
   btn.textContent = dentro ? "✓ Quitar de mi ruta" : "＋ Añadir a mi ruta";
 }
@@ -438,7 +500,23 @@ function actualizarUIPuntos() {
 }
 function actualizarBotonGenerar() { document.getElementById("btnGenerar").disabled = miRuta.length === 0; }
 document.getElementById("volverInicio").addEventListener("change", () => { invalidarRuta(); actualizarUIPuntos(); });
-document.getElementById("perfil").addEventListener("change", () => invalidarRuta());
+document.getElementById("perfil").addEventListener("change", (ev) => {
+  const sel = ev.target;
+  if (sel.value === "__otro__") {
+    const nombre = (prompt("Nombre exacto del perfil de BRouter (por ejemplo: mtb, gravel, trekking):") || "").trim();
+    if (nombre) {
+      let op = [...sel.options].find(o => o.value === nombre);
+      if (!op) {
+        op = new Option(nombre, nombre);
+        sel.insertBefore(op, sel.querySelector('option[value="__otro__"]'));
+      }
+      sel.value = nombre;
+    } else {
+      sel.value = "trekking";
+    }
+  }
+  invalidarRuta();
+});
 
 function armarModo(cual) {
   modoMarcar = (modoMarcar === cual) ? null : cual;
@@ -485,22 +563,115 @@ function fmtLong(m) { return m >= 1000 ? (m / 1000).toFixed(2).replace(".", ",")
 async function fetchJson(url) { const r = await fetch(url); if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`); return r.json(); }
 function badgeFiab(p) { return p.fiabilidad === "osm" ? `<span class="badge osm">OSM</span>` : `<span class="badge det">detectada</span>`; }
 
+function setEstado(msg) { document.getElementById("estadoRuta").textContent = msg || ""; }
+window.Elev.aviso = setEstado;   // esperas por límite de peticiones de Open-Meteo
+
 map.on("load", async () => {
   try {
-    const [bj, tr] = await Promise.all([fetchJson("bajadas.geojson"), fetchJson("tramos.geojson")]);
-    features = bj.features.filter(f => f.properties.es_bajada);
-    features.forEach(f => { const p = f.properties; p._cat = catDe(p); p._osm = p.fiabilidad === "osm"; porId.set(idDe(f), f); });
-    tr.features = tr.features.filter(t => porId.has(t.properties.bajada_id));
-    tr.features.forEach(t => { const b = porId.get(t.properties.bajada_id).properties; t.properties._cat = b._cat; t.properties._osm = b._osm; t.properties.nombre = b.nombre || ""; });
-    await cargarCapas(tr);
-    cargarLista();
+    await cargarCapas();
     cargarMiRutaGuardado(); renderMiRuta(); actualizarBotonesRuta(); actualizarUIPuntos();
-    ajustarVista();
+    actualizarMapa();
+    if (features.length) ajustarVista();
+    else setEstado("Acerca el mapa a tu zona y pulsa «Cargar esta zona».");
   } catch (e) {
-    document.getElementById("contador").textContent = "No se pudieron cargar bajadas.geojson y tramos.geojson. Ábrelos con un servidor local (python -m http.server) y ejecuta antes detectar_bajadas.py.";
+    setEstado("Error al iniciar el mapa: " + e.message);
     console.error(e);
   }
 });
+
+// Vuelca las bajadas cargadas (y sus trozos de color y extremos) a las capas del mapa
+function actualizarMapa() {
+  features = [...porId.values()];
+  const tr = { type: "FeatureCollection", features: [] };
+  const pt = { type: "FeatureCollection", features: [] };
+  for (const f of features) {
+    const p = f.properties, id = idDe(f);
+    for (const t of tramosPorId.get(id) || []) tr.features.push(t);
+    const base = { _cat: p._cat, _osm: p._osm, _color: colorDe(p), bajada_id: id, nombre: p.nombre || "" };
+    pt.features.push({ type: "Feature", geometry: { type: "Point", coordinates: p.inicio }, properties: { ...base, tipo: "inicio" } });
+    pt.features.push({ type: "Feature", geometry: { type: "Point", coordinates: p.fin }, properties: { ...base, tipo: "final" } });
+  }
+  const st = map.getSource("tramos"), sp = map.getSource("puntos");
+  if (st) st.setData(tr);
+  if (sp) sp.setData(pt);
+}
+
+// ---- Cargar la zona visible: senderos MTB de OSM + sentido por la elevación de los extremos ----
+document.getElementById("btnZona").addEventListener("click", cargarZona);
+
+async function cargarZona() {
+  if (cargandoZona) return;
+  const b = map.getBounds();
+  const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()];
+  const area = OSM.areaKm2(bbox);
+  if (area > OSM.MAX_AREA_KM2) {
+    setEstado(`La zona visible es muy grande (${Math.round(area)} km²). Acerca el mapa (máximo ${OSM.MAX_AREA_KM2} km²).`);
+    return;
+  }
+  cargandoZona = true;
+  const btn = document.getElementById("btnZona");
+  btn.disabled = true;
+  try {
+    const cand = await OSM.descargarZona(bbox, setEstado);
+    const nuevos = cand.filter(c => !porId.has(c.id) && !descartadas.has(c.id));
+    if (!nuevos.length) {
+      setEstado(cand.length ? "Todas las bajadas de esta zona ya estaban cargadas." : "No hay senderos con etiquetas MTB en esta zona.");
+      return;
+    }
+    setEstado(`Comprobando el sentido de ${nuevos.length} bajadas…`);
+    const extremos = [];
+    for (const c of nuevos) extremos.push(c.pts[0], c.pts[c.pts.length - 1]);
+    await Elev.obtener(extremos, (hecho, total) => setEstado(`Elevación de los extremos: ${hecho}/${total}…`));
+    let validas = 0, dudosas = 0;
+    for (const c of nuevos) {
+      const ini = c.pts[0], fin = c.pts[c.pts.length - 1];
+      const r = OSM.evaluar(c, Elev.ele(ini[0], ini[1]), Elev.ele(fin[0], fin[1]));
+      if (!r) { dudosas++; continue; }   // ante la duda, no se muestra
+      porId.set(c.id, r.feature); tramosPorId.set(c.id, r.tramos); validas++;
+    }
+    actualizarMapa();
+    setEstado(validas
+      ? `${validas} bajada${validas === 1 ? "" : "s"} cargada${validas === 1 ? "" : "s"} · ${dudosas} descartada${dudosas === 1 ? "" : "s"} por sentido dudoso`
+      : `No hay bajadas nuevas con sentido fiable (${dudosas} descartada${dudosas === 1 ? "" : "s"} por sentido dudoso).`);
+  } catch (e) {
+    console.error(e);
+    setEstado("Error: " + e.message);
+  } finally {
+    cargandoZona = false;
+    btn.disabled = false;
+  }
+}
+
+// ---- Perfil completo de una bajada (se pide al abrirla o al añadirla a la ruta) ----
+function asegurarPerfil(id) {
+  const f = porId.get(id);
+  if (!f) return Promise.resolve(false);
+  if (f.properties.perfil_cargado) return Promise.resolve(true);
+  if (perfilesEnCurso.has(id)) return perfilesEnCurso.get(id);
+  const prom = (async () => {
+    try {
+      const r = await Elev.cargarPerfil(f);
+      if (!r.ok) { descartarBajada(id, r.motivo); return false; }
+      return true;
+    } finally {
+      perfilesEnCurso.delete(id);
+    }
+  })();
+  perfilesEnCurso.set(id, prom);
+  return prom;
+}
+
+function descartarBajada(id, motivo) {
+  const f = porId.get(id);
+  const nombre = f && f.properties.nombre ? `«${f.properties.nombre}»` : "Una bajada";
+  porId.delete(id); tramosPorId.delete(id); descartadas.add(id);
+  try { localStorage.setItem(STORAGE_DESCARTADAS, JSON.stringify([...descartadas])); } catch (e) {}
+  if (seleccionada === id) deseleccionar();
+  const i = miRuta.indexOf(id);
+  if (i >= 0) { miRuta.splice(i, 1); guardarMiRuta(); renderMiRuta(); actualizarBotonGenerar(); }
+  actualizarMapa();
+  setEstado(`${nombre} se ha retirado: ${motivo}.`);
+}
 
 function cargarIcono(nombre, color) {
   return new Promise((resolve) => {
@@ -513,23 +684,15 @@ function cargarIcono(nombre, color) {
   });
 }
 
-async function cargarCapas(tramos) {
-  map.addSource("tramos", { type: "geojson", data: tramos });
+async function cargarCapas() {
+  map.addSource("tramos", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   map.addLayer({ id: "tramos-halo", type: "line", source: "tramos", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": 8, "line-opacity": 0.6 } });
   map.addLayer({ id: "tramos-sel", type: "line", source: "tramos", filter: ["==", ["get", "bajada_id"], ""], layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffd400", "line-opacity": 0.9, "line-width": ["interpolate", ["linear"], ["zoom"], 10, 6, 14, 10, 17, 14] } });
   map.addLayer({ id: "tramos-line", type: "line", source: "tramos", layout: { "line-cap": "butt", "line-join": "round" }, paint: { "line-color": ["get", "stroke"], "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2, 14, 4, 17, 7] } });
   // Capa invisible más ancha para facilitar el toque sin engordar el trazo visible.
   map.addLayer({ id: "tramos-hit", type: "line", source: "tramos", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#000000", "line-opacity": 0.01, "line-width": ["interpolate", ["linear"], ["zoom"], 10, 10, 14, 14, 17, 18] } }, "tramos-line");
 
-  const puntos = { type: "FeatureCollection", features: [] };
-  features.forEach(f => {
-    const p = f.properties; const c = f.geometry.coordinates;
-    const ini = p.inicio || c[0].slice(0, 2); const fin = p.fin || c[c.length - 1].slice(0, 2);
-    const base = { _cat: p._cat, _osm: p._osm, _color: colorDe(p), bajada_id: idDe(f), nombre: p.nombre || "" };
-    puntos.features.push({ type: "Feature", geometry: { type: "Point", coordinates: ini }, properties: { ...base, tipo: "inicio" } });
-    puntos.features.push({ type: "Feature", geometry: { type: "Point", coordinates: fin }, properties: { ...base, tipo: "final" } });
-  });
-  map.addSource("puntos", { type: "geojson", data: puntos });
+  map.addSource("puntos", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   map.addLayer({ id: "puntos-inicio", type: "circle", source: "puntos", filter: ["==", ["get", "tipo"], "inicio"], paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 2.5, 14, 4, 16, 5], "circle-color": "#ffffff", "circle-stroke-color": ["get", "_color"], "circle-stroke-width": 2 } });
   await Promise.all(CATS.map(c => cargarIcono("cuadrado-" + c, COLORES[c])));
   map.addLayer({ id: "puntos-final", type: "symbol", source: "puntos", filter: ["==", ["get", "tipo"], "final"], layout: { "icon-image": ["concat", "cuadrado-", ["get", "_cat"]], "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.3, 14, 0.45, 17, 0.65], "icon-allow-overlap": true, "icon-ignore-placement": true } });
@@ -540,7 +703,6 @@ async function cargarCapas(tramos) {
     "icon-image": "flecha-ruta", "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.35, 14, 0.5, 17, 0.7],
     "icon-rotation-alignment": "map", "icon-allow-overlap": true, "icon-ignore-placement": true } }, "puntos-inicio");
 
-  aplicarFiltrosMapa();
   let ultimoToque = 0;
   const clic = (e) => {
     if (modoMarcar || !e.features || !e.features.length) return;
@@ -585,7 +747,6 @@ function seleccionar(id, opts = {}) {
   map.setFilter("tramos-sel", ["==", ["get", "bajada_id"], id]);
   const sf = map.getSource("sel-flechas");
   if (sf) sf.setData({ type: "Feature", properties: {}, geometry: f.geometry });
-  resaltarEnLista(id);
   const p = f.properties;
   let lngLat = opts.lngLat || { lng: p.inicio[0], lat: p.inicio[1] };
   if (opts.fit) {
@@ -595,9 +756,21 @@ function seleccionar(id, opts = {}) {
     lngLat = { lng: centro.lng, lat: centro.lat };
   }
   mostrarPopup(f, lngLat);
+  if (!p.perfil_cargado) {   // el perfil completo llega después de abrir la ficha
+    asegurarPerfil(id).then(ok => {
+      if (!ok || seleccionada !== id) return;
+      const g = porId.get(id); if (!g) return;
+      const s2 = map.getSource("sel-flechas");
+      if (s2) s2.setData({ type: "Feature", properties: {}, geometry: g.geometry });
+      mostrarPopup(g, lngLat);
+    }).catch(e => {
+      console.error(e);
+      if (seleccionada === id && porId.has(id)) mostrarPopup(porId.get(id), lngLat, "No se pudo calcular el perfil: " + e.message);
+    });
+  }
 }
 
-function mostrarPopup(f, lngLat) {
+function mostrarPopup(f, lngLat, aviso) {
   const p = f.properties; const color = colorDe(p);
   let dif = p.dificultad_color ? `<span style="color:${color};font-weight:600">${esc(p.dificultad_color)}</span>` : `<span style="color:#95a5a6">sin dificultad en OSM</span>`;
   const det = p.dificultad_detalle_m || {};
@@ -608,18 +781,24 @@ function mostrarPopup(f, lngLat) {
   const fila = (k, v) => (v === null || v === undefined || v === "") ? "" : `<tr><td>${k}</td><td>${v}</td></tr>`;
   const id = idDe(f);
   const dentro = estaEnRuta(id);
+  const cargado = !!p.perfil_cargado;
+  const asc = cargado ? Math.round(Number(p.ascenso_m) || 0) : 0;
+  let resumen = `${fmtLong(Math.round(Number(p.longitud_m) || 0))} · ↓${Math.round(Number(p.caida_m) || 0)} m${asc > 0 ? ` · ↑${asc} m` : ""} · ${p.pendiente_media_pct} %`;
+  resumen += `<br>Inicio ${p.elev_inicio_m} m → fin ${p.elev_final_m} m`;
+  if (aviso) resumen += `<br><span style="color:#b3261e">${esc(aviso)}</span>`;
+  else if (!cargado) resumen += `<br><span style="color:#8a939b">Calculando perfil…</span>`;
 
   const ficha = document.getElementById("ficha");
   ficha.innerHTML = `
       <button class="cerrar" title="Cerrar">×</button>
       <h3>${esc(p.nombre || "(sin nombre)")} ${badgeFiab(p)}</h3>
-      <div class="ficha-resumen">${fmtLong(Math.round(Number(p.longitud_m)||0))} · ↓${Math.round(Number(p.caida_m)||0)} m${(() => { const asc = Number(p.subida_m ?? p.ascenso_m ?? p.ganancia_m ?? p.desnivel_positivo_m ?? p.ganancia_altitud_m ?? p.metros_subida ?? p.subida ?? p.ascenso ?? p.desnivel_positivo ?? 0); return asc > 0 ? ` · ↑${Math.round(asc)} m` : ""; })()}</div>
+      <div class="ficha-resumen">${resumen}</div>
       <table>
         ${fila("Dificultad", dif)}
         ${fila("Longitud", fmtLong(p.longitud_m))}
         ${fila("Caída", p.caida_m + " m")}
         ${fila("Pend. media", p.pendiente_media_pct + " %")}
-        ${fila("Pend. máx 100 m", p.pendiente_max_100m_pct + " %")}
+        ${fila("Pend. máx 100 m", cargado ? p.pendiente_max_100m_pct + " %" : null)}
         ${fila("Tipo", esc(p.mtb_type))}
         ${fila("Superficie", esc(p.surface))}
         ${fila("Tramos OSM", p.n_tramos)}
@@ -642,88 +821,11 @@ function deseleccionar() {
   document.querySelectorAll(".card.sel").forEach(c => c.classList.remove("sel"));
 }
 
-function pasaFiltros(f) {
-  const p = f.properties;
-  return activos.color.has(p._cat) && (!activos.soloOsm || p._osm);
-}
-
-function cargarLista() {
-  const cont = document.getElementById("lista");
-  cont.innerHTML = "";
-  const visibles = features.filter(pasaFiltros).sort((a, b) => b.properties.longitud_m - a.properties.longitud_m);
-  document.getElementById("contador").textContent = `${visibles.length} de ${features.length} bajadas`;
-
-  visibles.forEach(f => {
-    const p = f.properties;
-    const color = colorDe(p);
-    const id = idDe(f);
-    const dentro = estaEnRuta(id);
-    const el = document.createElement("div");
-    el.className = "card" + (id === seleccionada ? " sel" : "");
-    el.dataset.id = id;
-    el.innerHTML = `
-      <div class="nom" style="border-left:4px solid ${color};padding-left:8px">
-        <span class="txt">${esc(p.nombre || "(sin nombre)")} ${badgeFiab(p)}</span>
-        <button class="btn-add ${dentro ? "in" : ""}" data-id="${id}" title="${dentro ? "Quitar de mi ruta" : "Añadir a mi ruta"}">${dentro ? "✓" : "＋"}</button>
-      </div>
-      <div class="meta">
-        <span>${fmtLong(p.longitud_m)}</span>
-        <span>↓${p.caida_m} m</span>
-        <span>${p.pendiente_media_pct} %</span>
-        ${p.dificultad_color ? `<span style="color:${color}">${esc(p.dificultad_color)}</span>` : ""}
-      </div>
-    `;
-    el.querySelector(".btn-add").addEventListener("click", (ev) => { ev.stopPropagation(); toggleRuta(id); });
-    el.addEventListener("click", () => seleccionar(id, { fit: true }));
-    cont.appendChild(el);
-  });
-
-  actualizarBotonesRuta();
-}
-
-function resaltarEnLista(id) {
-  document.querySelectorAll(".card.sel").forEach(c => c.classList.remove("sel"));
-  const el = document.querySelector(`.card[data-id="${id}"]`);
-  if (el) { el.classList.add("sel"); el.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
-}
-
 function ajustarVista() {
   const b = new maplibregl.LngLatBounds();
   features.forEach(f => f.geometry.coordinates.forEach(c => b.extend([c[0], c[1]])));
   if (!b.isEmpty()) map.fitBounds(b, { padding: 60, duration: 0 });
 }
-
-function aplicarFiltrosMapa() {
-  const base = [["in", ["get", "_cat"], ["literal", [...activos.color]]]];
-  if (activos.soloOsm) base.push(["==", ["get", "_osm"], true]);
-  const idsBusqueda = (typeof textoBusqueda === "string" && textoBusqueda)
-    ? features.filter(f => String(f.properties.nombre || "").toLocaleLowerCase("es").includes(textoBusqueda)).map(idDe) : null;
-  if (idsBusqueda) base.push(["in", ["get", "bajada_id"], ["literal", idsBusqueda]]);
-  ["tramos-halo", "tramos-line"].forEach(id => { if (map.getLayer(id)) map.setFilter(id, ["all", ...base]); });
-  if (map.getLayer("puntos-inicio")) map.setFilter("puntos-inicio", ["all", ...base, ["==", ["get", "tipo"], "inicio"]]);
-  if (map.getLayer("puntos-final")) map.setFilter("puntos-final", ["all", ...base, ["==", ["get", "tipo"], "final"]]);
-}
-
-document.querySelectorAll("#filtros .chip").forEach(chip => {
-  chip.addEventListener("click", () => {
-    const todas = document.querySelector('#filtros .chip[data-filtro="todas"]');
-    if (chip.dataset.filtro === "todas") {
-      const algunoInactivo = activos.color.size < CATS.length;
-      activos.color = new Set(algunoInactivo ? CATS : []);
-      document.querySelectorAll("#filtros .chip[data-color]").forEach(c => c.classList.toggle("active", algunoInactivo));
-    } else if (chip.dataset.color) {
-      const k = chip.dataset.color;
-      chip.classList.toggle("active");
-      if (chip.classList.contains("active")) activos.color.add(k); else activos.color.delete(k);
-    } else if (chip.dataset.solo) {
-      chip.classList.toggle("active");
-      activos.soloOsm = chip.classList.contains("active");
-    }
-    todas.classList.toggle("active", activos.color.size === CATS.length);
-    aplicarFiltrosMapa();
-    cargarLista();
-  });
-});
 
 // ---- Búsqueda rápida por nombre (mapa) ----
 const busquedaWrap = document.getElementById("busquedaWrap");
@@ -973,7 +1075,8 @@ document.getElementById("btnGenerar").addEventListener("click", async () => {
   btn.disabled = true;
   estado.textContent = "Iniciando...";
   try {
-    const r = await window.generarRutaGPX(seleccion, puntoInicio, fin, perfil, (msg) => { if (version === versionRuta) estado.textContent = msg; });
+    const todasLasBajadas = [...porId.values()];   // todas las bajadas cargadas: BRouter evita subir por ellas
+    const r = await window.generarRutaGPX(seleccion, puntoInicio, fin, perfil, (msg) => { if (version === versionRuta) estado.textContent = msg; }, todasLasBajadas);
     if (version !== versionRuta) { estado.textContent = "La selección cambió mientras se calculaba. Vuelve a generar."; return; }
     rutaGenerada = r;
     let bi = 0;
@@ -984,7 +1087,9 @@ document.getElementById("btnGenerar").addEventListener("click", async () => {
     document.getElementById("btnDescargarGPX").disabled = false;
     document.getElementById("btnGenerar").textContent = "⬇ Descargar GPX";
     document.getElementById("btnDescargarMapa").style.display = "block";
-    estado.textContent = "Ruta lista. Revísala en el mapa y descarga el GPX.";
+    const sinEvitar = r.segmentos.filter(sg => sg.tipo === "enlace" && sg.conNogo === false).length;
+    estado.textContent = "Ruta lista. Revísala en el mapa y descarga el GPX."
+      + (sinEvitar ? ` ⚠ ${sinEvitar} enlace${sinEvitar === 1 ? "" : "s"} no ha${sinEvitar === 1 ? "" : "n"} podido evitar subir por alguna bajada.` : "");
   } catch (e) {
     estado.textContent = "Error: " + e.message;
     console.error(e);
@@ -1008,7 +1113,7 @@ document.getElementById("btnBorrarTodo").addEventListener("click", () => {
   miRuta.length = 0; puntoInicio = null; puntoFin = null;
   guardarMiRuta(); guardarPuntos(); invalidarRuta();
   document.getElementById("volverInicio").checked = true;
-  document.getElementById("perfil").value = "mtb";
+  document.getElementById("perfil").value = "trekking";
   deseleccionar();
   renderMiRuta(); actualizarBotonesRuta(); actualizarPopupBoton(); actualizarUIPuntos();
   document.getElementById("estadoRuta").textContent = "";
