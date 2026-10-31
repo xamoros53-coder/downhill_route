@@ -100,12 +100,6 @@
   .maplibregl-popup-content table { border-collapse: collapse; }
   .maplibregl-popup-content td { padding: 2px 8px 2px 0; vertical-align: top; }
   .maplibregl-popup-content td:first-child { color: #777; }
-  #btnDescargarMapa {
-    position: absolute; top: 12px; left: 12px; z-index: 5; display: none;
-    padding: 8px 14px; border: none; border-radius: 8px; background: #2e7d32; color: #fff;
-    font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.3);
-  }
-  #btnDescargarMapa:hover { background: #1b5e20; }
   #busquedaWrap { position:absolute; z-index:8; top:12px; left:12px; width:min(330px, calc(100% - 24px)); }
   #btnBuscarToggle { width:46px; height:46px; border:0; border-radius:14px; background:#fff; color:#243746; font-size:22px; box-shadow:0 2px 12px rgba(0,0,0,.22); cursor:pointer; touch-action:manipulation; }
   #busquedaPanel { display:none; background:#fff; border-radius:14px; margin-top:7px; padding:8px; box-shadow:0 3px 16px rgba(0,0,0,.2); }
@@ -227,10 +221,8 @@
   }
   #btnZona:hover { background: #1a252f; }
   #btnZona:disabled { background: #7d8a96; cursor: progress; }
-  #btnDescargarMapa { top: 66px; }
   @media (max-width: 720px) {
     #btnZona { top: 10px; left: 62px; height: 44px; padding: 0 14px; }
-    #btnDescargarMapa { top: 62px; }
   }
 </style>
 <link rel="manifest" href="./manifest.webmanifest">
@@ -251,7 +243,6 @@
         <div id="busquedaResultados" aria-live="polite"></div>
       </div>
     </div>
-    <button id="btnDescargarMapa">⬇ Descargar GPX</button>
     <button id="btnZona" type="button" title="Descarga las bajadas MTB de OpenStreetMap que se ven en el mapa">Cargar esta zona</button>
     <div id="ficha"></div>
     <div id="perfilAlt">
@@ -268,7 +259,6 @@
             <span class="t1">Mi ruta <span id="miRutaContador">0 bajadas</span></span>
             <span class="tot" id="miRutaTotales">Sin bajadas todavía</span>
           </span>
-          <span class="chev"><span class="flecha">▲</span>Opciones</span>
         </button>
         <button id="btnGenerar" disabled>Generar ruta</button>
       </div>
@@ -276,22 +266,8 @@
       <div id="progresoZona"><i></i></div>
       <div id="detalleWrap">
         <div id="detalle">
-          <div class="puntoRuta" id="filaInicio">
-            <span class="ico">🟢</span>
-            <span class="txt vacio" id="txtInicio">Sin punto de inicio</span>
-            <button id="btnMarcarInicio" title="Elegir inicio en el mapa" aria-label="Elegir inicio en el mapa">🗺️</button>
-            <button id="btnUbicacionInicio" title="Usar mi ubicación" aria-label="Usar mi ubicación como inicio">📍</button>
-            <button id="btnBorrarInicio" class="x" title="Borrar inicio" aria-label="Borrar inicio">×</button>
-          </div>
-          <div class="puntoRuta" id="filaFin" style="display:none">
-            <span class="ico">🔴</span>
-            <span class="txt vacio" id="txtFin">Sin punto de fin</span>
-            <button id="btnMarcarFin" title="Elegir fin en el mapa" aria-label="Elegir fin en el mapa">🗺️</button>
-            <button id="btnUbicacionFin" title="Usar mi ubicación" aria-label="Usar mi ubicación como fin">📍</button>
-            <button id="btnBorrarFin" class="x" title="Borrar fin" aria-label="Borrar fin">×</button>
-          </div>
           <div class="fila-opc">
-            <label class="check" for="volverInicio" title="Volver al punto de inicio"><input type="checkbox" id="volverInicio" checked />Ruta circular</label>
+            <label class="check" for="volverInicio" title="Al final, volver al primer punto o bajada de la lista"><input type="checkbox" id="volverInicio" checked />Ruta circular</label>
             <label class="tipo" for="perfil">Tipo
 			<select id="perfil">
               <option value="trekking">Trekking</option>
@@ -308,11 +284,9 @@
           </div>
           <div class="sec-titulo">Ruta: bajadas y puntos (ordénalos con ▲ ▼)</div>
           <div id="miRutaLista"></div>
-          <button id="btnMarcarInter" type="button" class="btnInter">📍 Añadir punto intermedio en el mapa</button>
           <div id="resumenRuta"></div>
           <button id="btnDescargarGPX" disabled style="display:none">Descargar GPX</button>
           <div class="acciones">
-            <button id="limpiarRuta" type="button">Vaciar ruta</button>
             <button id="btnBorrarTodo" type="button" class="peligro" title="Quita bajadas, inicio, fin y ruta generada">Empezar de cero</button>
           </div>
         </div>
@@ -342,6 +316,10 @@ const map = new maplibregl.Map({
 });
 
 map.addControl(new maplibregl.NavigationControl(), "top-right");
+map.addControl(new maplibregl.GeolocateControl({
+  positionOptions: { enableHighAccuracy: true },
+  trackUserLocation: true, showUserLocation: true, showAccuracyCircle: true
+}), "top-right");   // botón ◎ + punto azul con tu ubicación
 map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-right");
 
 let features = [];                 // bajadas cargadas (se rehace en actualizarMapa)
@@ -416,8 +394,7 @@ function cargarMiRutaGuardado() {
     if (rp) for (const [id, pt] of JSON.parse(rp)) puntosInter.set(id, pt);
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) { const ids = JSON.parse(raw); if (Array.isArray(ids)) miRuta = ids.filter(id => porId.has(id) || puntosInter.has(id)); }
-    const ri = localStorage.getItem(STORAGE_INICIO); if (ri) puntoInicio = JSON.parse(ri);
-    const rf = localStorage.getItem(STORAGE_FIN); if (rf) puntoFin = JSON.parse(rf);
+    localStorage.removeItem(STORAGE_INICIO); localStorage.removeItem(STORAGE_FIN);
   } catch (e) {}
 }
 function guardarMiRuta() {
@@ -494,7 +471,7 @@ function renderMiRuta() {
       if (!esP && !f) return;
       const el = document.createElement("div"); el.className = "item" + (esP ? " punto-inter" : "");
       let marca, nombre;
-      if (esP) { nPun++; marca = `<span class="pin">📍</span>`; nombre = `Punto intermedio ${nPun}`; }
+      if (esP) { nPun++; marca = `<span class="pin">📍</span>`; const pt = puntosInter.get(id); nombre = (pt && pt[2]) ? pt[2] : `Punto ${nPun}`; }
       else {
         nBaj++;
         const p = f.properties;
@@ -537,25 +514,7 @@ function actualizarPopupBoton() {
   btn.classList.toggle("in", dentro);
   btn.textContent = dentro ? "✓ Quitar de mi ruta" : "＋ Añadir a mi ruta";
 }
-document.getElementById("limpiarRuta").addEventListener("click", () => {
-  miRuta.length = 0; guardarMiRuta(); renderMiRuta(); actualizarBotonesRuta(); actualizarPopupBoton(); actualizarBotonGenerar();
-});
-
-function actualizarUIPuntos() {
-  const tIni = document.getElementById("txtInicio");
-  if (puntoInicio) { tIni.textContent = `${puntoInicio[0].toFixed(5)}, ${puntoInicio[1].toFixed(5)}`; tIni.classList.remove("vacio"); }
-  else { tIni.textContent = "Sin punto de inicio"; tIni.classList.add("vacio"); }
-  const tFin = document.getElementById("txtFin");
-  if (puntoFin) { tFin.textContent = `${puntoFin[0].toFixed(5)}, ${puntoFin[1].toFixed(5)}`; tFin.classList.remove("vacio"); }
-  else { tFin.textContent = "Sin punto de fin"; tFin.classList.add("vacio"); }
-  const volver = document.getElementById("volverInicio").checked;
-  document.getElementById("filaFin").style.display = volver ? "none" : "flex";
-  if (markerInicio) { markerInicio.remove(); markerInicio = null; }
-  if (markerFin) { markerFin.remove(); markerFin = null; }
-  if (puntoInicio) markerInicio = new maplibregl.Marker({ color: "#2e7d32" }).setLngLat([puntoInicio[1], puntoInicio[0]]).addTo(map);
-  if (puntoFin && !volver) markerFin = new maplibregl.Marker({ color: "#d62f2f" }).setLngLat([puntoFin[1], puntoFin[0]]).addTo(map);
-  actualizarBotonGenerar();
-}
+function actualizarUIPuntos() { actualizarBotonGenerar(); }
 function actualizarBotonGenerar() { document.getElementById("btnGenerar").disabled = !miRuta.some(id => !esPunto(id)); }
 document.getElementById("volverInicio").addEventListener("change", () => { invalidarRuta(); actualizarUIPuntos(); });
 document.getElementById("perfil").addEventListener("change", (ev) => {
@@ -576,50 +535,57 @@ document.getElementById("perfil").addEventListener("change", (ev) => {
   invalidarRuta();
 });
 
-function armarModo(cual) {
-  modoMarcar = (modoMarcar === cual) ? null : cual;
-  document.getElementById("btnMarcarInicio").classList.toggle("armado", modoMarcar === "inicio");
-  document.getElementById("btnMarcarFin").classList.toggle("armado", modoMarcar === "fin");
-  document.getElementById("btnMarcarInter").classList.toggle("armado", modoMarcar === "inter");
-  document.getElementById("estadoRuta").textContent = modoMarcar
-    ? `Toca en el mapa para marcar ${modoMarcar === "inicio" ? "el inicio" : modoMarcar === "fin" ? "el fin" : "un punto intermedio"}` : "";
-  map.getCanvas().style.cursor = modoMarcar ? "crosshair" : "";
-  if (modoMarcar) setPanel(false);
-}
-document.getElementById("btnMarcarInicio").addEventListener("click", () => armarModo("inicio"));
-document.getElementById("btnMarcarFin").addEventListener("click", () => armarModo("fin"));
-document.getElementById("btnMarcarInter").addEventListener("click", () => armarModo("inter"));
-document.getElementById("btnBorrarInicio").addEventListener("click", () => { puntoInicio = null; guardarPuntos(); actualizarUIPuntos(); });
-document.getElementById("btnBorrarFin").addEventListener("click", () => { puntoFin = null; guardarPuntos(); actualizarUIPuntos(); });
 
-function usarUbicacion(cual) {
-  if (!navigator.geolocation) { alert("Tu navegador no soporta geolocalización."); return; }
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const lat = pos.coords.latitude, lon = pos.coords.longitude;
-      if (cual === "inicio") puntoInicio = [lat, lon]; else puntoFin = [lat, lon];
-      guardarPuntos(); actualizarUIPuntos();
-      map.easeTo({ center: [lon, lat], zoom: Math.max(map.getZoom(), 14), duration: 650 });
-    },
-    (err) => alert("No se pudo obtener la ubicación: " + err.message),
-    { enableHighAccuracy: true, timeout: 10000 }
-  );
-}
-document.getElementById("btnUbicacionInicio").addEventListener("click", () => usarUbicacion("inicio"));
-document.getElementById("btnUbicacionFin").addEventListener("click", () => usarUbicacion("fin"));
-
+// Pulsación (o clic) en un hueco del mapa: pregunta qué quieres hacer con ese punto
+let popupPunto = null;
+function cerrarPopupPunto() { if (popupPunto) { popupPunto.remove(); popupPunto = null; } }
 map.on("click", (e) => {
-  if (!modoMarcar) return;
-  const lat = e.lngLat.lat, lon = e.lngLat.lng;
-  if (modoMarcar === "inter") {
-    const id = "wp:" + Date.now();
-    puntosInter.set(id, [lat, lon]); miRuta.push(id);
-    guardarMiRuta(); armarModo("inter"); renderMiRuta(); actualizarBotonGenerar();
-    return;
+  const oe = e.originalEvent;
+  if (oe && oe.target && oe.target.closest && oe.target.closest(".maplibregl-marker, .maplibregl-popup")) return;
+  // si se ha tocado una bajada, la gestiona su propia ficha
+  const capas = ["tramos-hit", "tramos-line", "puntos-inicio", "puntos-final"].filter(l => map.getLayer(l));
+  if (capas.length) {
+    const p = e.point, pad = 10;
+    if (map.queryRenderedFeatures([[p.x - pad, p.y - pad], [p.x + pad, p.y + pad]], { layers: capas }).some(f => f.properties && f.properties.bajada_id)) return;
   }
-  if (modoMarcar === "inicio") puntoInicio = [lat, lon]; else puntoFin = [lat, lon];
-  guardarPuntos(); armarModo(modoMarcar); actualizarUIPuntos();
+  const lat = e.lngLat.lat, lon = e.lngLat.lng;
+  cerrarPopupPunto();
+  deseleccionar();
+  const lugarP = nombreDeLugar(lat, lon);   // promesa: nombre legible o null
+  const cont = document.createElement("div");
+  cont.innerHTML = `<h3>Añadir punto a la ruta</h3>
+    <div id="lugarPunto" style="font-weight:600;color:#243746">Buscando el lugar…</div>
+    <div style="color:#8a939b;font-size:11px;margin-top:2px">${lat.toFixed(5)}, ${lon.toFixed(5)}</div>
+    <button class="popup-add" data-a="inter">📍 Añadir punto</button>`;
+  lugarP.then(n => { const el = cont.querySelector("#lugarPunto"); if (el) el.textContent = n || "Punto en el mapa"; });
+  cont.addEventListener("click", async (ev) => {
+    const btn = ev.target.closest("button[data-a]"); if (!btn) return;
+    ev.stopPropagation();
+    btn.disabled = true;
+    const nombre = await lugarP;
+    const id = "wp:" + Date.now();
+    puntosInter.set(id, nombre ? [lat, lon, nombre] : [lat, lon]); miRuta.push(id);
+    guardarMiRuta(); renderMiRuta(); actualizarBotonGenerar();
+    cerrarPopupPunto();
+  });
+  popupPunto = new maplibregl.Popup({ closeButton: true, maxWidth: "260px" }).setLngLat([lon, lat]).setDOMContent(cont).addTo(map);
+  popupPunto.on("close", () => { popupPunto = null; });
 });
+
+// Nombre legible de un sitio (calle + localidad, o el lugar si lo tiene) con Nominatim / OpenStreetMap
+async function nombreDeLugar(lat, lon) {
+  const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), 4000);
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=17&accept-language=es&lat=${lat}&lon=${lon}`, { signal: ctrl.signal });
+    if (!r.ok) return null;
+    const j = await r.json(), ad = j.address || {};
+    const sitio = j.name || ad.road || ad.path || ad.track || ad.neighbourhood || ad.suburb || null;
+    const zona = ad.village || ad.town || ad.city || ad.hamlet || ad.municipality || ad.county || null;
+    const partes = [sitio, zona].filter((x, i, a) => x && a.indexOf(x) === i);
+    return partes.length ? partes.join(", ") : null;
+  } catch (e) { return null; }
+  finally { clearTimeout(t); }
+}
 
 function esc(t) { return String(t ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 const idDe = f => f.properties.id;
@@ -907,6 +873,7 @@ async function cargarCapas() {
 
 function seleccionar(id, opts = {}) {
   const f = porId.get(id); if (!f) return;
+  if (typeof cerrarPopupPunto === "function") cerrarPopupPunto();
   seleccionada = id;
   map.setFilter("tramos-sel", ["==", ["get", "bajada_id"], id]);
   const sf = map.getSource("sel-flechas");
@@ -1232,7 +1199,6 @@ function invalidarRuta() {
   document.getElementById("resumenRuta").innerHTML = "";
   document.getElementById("btnDescargarGPX").disabled = true;
   document.getElementById("btnGenerar").textContent = "Generar ruta";
-  document.getElementById("btnDescargarMapa").style.display = "none";
   ocultarPerfil();
   if (hab) document.getElementById("estadoRuta").textContent = "";
 }
@@ -1242,7 +1208,7 @@ document.getElementById("btnGenerar").addEventListener("click", async () => {
   if (!miRuta.some(id => !esPunto(id))) return;
   let nPunto = 0;
   const seleccion = miRuta.map(id => {
-    if (esPunto(id)) { const pt = puntosInter.get(id); return pt ? { punto: true, lat: pt[0], lon: pt[1], nombre: `Punto ${++nPunto}` } : null; }
+    if (esPunto(id)) { const pt = puntosInter.get(id); return pt ? { punto: true, lat: pt[0], lon: pt[1], nombre: (pt[2] || `Punto ${++nPunto}`) } : null; }
     return porId.get(id);
   }).filter(Boolean);
   const soloBajadas = seleccion.filter(x => !x.punto);
@@ -1250,7 +1216,11 @@ document.getElementById("btnGenerar").addEventListener("click", async () => {
   const btn = document.getElementById("btnGenerar");
   const estado = document.getElementById("estadoRuta");
   const volver = document.getElementById("volverInicio").checked;
-  const fin = volver ? puntoInicio : (puntoFin || puntoInicio);
+  const primero = seleccion[0];
+  const inicioRuta = primero.punto ? [primero.lat, primero.lon]
+    : (primero.properties.inicio ? [primero.properties.inicio[1], primero.properties.inicio[0]]
+      : [primero.geometry.coordinates[0][1], primero.geometry.coordinates[0][0]]);
+  const fin = volver ? inicioRuta : null;   // circular: vuelve al primer punto/bajada de la lista
   invalidarRuta();
   setPanel(false);
   const version = versionRuta;
@@ -1258,7 +1228,7 @@ document.getElementById("btnGenerar").addEventListener("click", async () => {
   estado.textContent = "Iniciando...";
   try {
     const todasLasBajadas = [...porId.values()];   // todas las bajadas cargadas: BRouter evita subir por ellas
-    const r = await window.generarRutaGPX(seleccion, puntoInicio, fin, perfil, (msg) => { if (version === versionRuta) estado.textContent = msg; }, todasLasBajadas);
+    const r = await window.generarRutaGPX(seleccion, null, fin, perfil, (msg) => { if (version === versionRuta) estado.textContent = msg; }, todasLasBajadas);
     if (version !== versionRuta) { estado.textContent = "La selección cambió mientras se calculaba. Vuelve a generar."; return; }
     rutaGenerada = r;
     let bi = 0;
@@ -1268,7 +1238,6 @@ document.getElementById("btnGenerar").addEventListener("click", async () => {
     mostrarResumenRuta(r.stats);
     document.getElementById("btnDescargarGPX").disabled = false;
     document.getElementById("btnGenerar").textContent = "⬇ Descargar GPX";
-    document.getElementById("btnDescargarMapa").style.display = "block";
     const sinEvitar = r.segmentos.filter(sg => sg.tipo === "enlace" && sg.conNogo === false).length;
     estado.textContent = "Ruta lista. Revísala en el mapa y descarga el GPX."
       + (sinEvitar ? ` ⚠ ${sinEvitar} enlace${sinEvitar === 1 ? "" : "s"} no ha${sinEvitar === 1 ? "" : "n"} podido evitar subir por alguna bajada.` : "");
@@ -1286,12 +1255,11 @@ function descargarRuta() {
   document.getElementById("estadoRuta").textContent = "GPX descargado ✓";
 }
 document.getElementById("btnDescargarGPX").addEventListener("click", descargarRuta);
-document.getElementById("btnDescargarMapa").addEventListener("click", descargarRuta);
 
 document.getElementById("btnBorrarTodo").addEventListener("click", () => {
   if (miRuta.length === 0 && !puntoInicio && !puntoFin && !rutaGenerada) return;
   if (!confirm("¿Borrar bajadas, inicio, fin y ruta generada, y empezar de cero?")) return;
-  if (modoMarcar) armarModo(modoMarcar);
+  cerrarPopupPunto();
   miRuta.length = 0; puntoInicio = null; puntoFin = null;
   guardarMiRuta(); guardarPuntos(); invalidarRuta();
   document.getElementById("volverInicio").checked = true;
