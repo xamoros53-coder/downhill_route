@@ -349,6 +349,7 @@ let markerInicio = null;
 let markerFin = null;
 let rutaGenerada = null;   // { gpx, segmentos, stats } de la última ruta calculada
 let perfilDatos = null, perfilGeom = null, markerPerfil = null;
+let perfilPuntos = [];   // puntos elegidos sobre el perfil: { d, n, nombre }
 let versionRuta = 0;       // sube con cada cambio; descarta cálculos que ya no valen
 const COLOR_RUTA = "#7b1fa2"; // enlaces y contorno de las bajadas de la ruta
 
@@ -1133,9 +1134,30 @@ function construirPerfil(segmentos) {
   return { pts: red, total: d };
 }
 
-function mostrarPerfil(segmentos, st) {
+// Sitúa cada punto elegido (en orden) sobre el recorrido: distancia acumulada donde la ruta pasa por él
+function ubicarPuntosEnPerfil(pts, puntos) {
+  const dist = (q, p) => Math.hypot((q.lat - p.lat) * 111320, (q.lon - p.lon) * 111320 * Math.cos(p.lat * Math.PI / 180));
+  const res = []; let desde = 0;
+  puntos.forEach((p, k) => {
+    let mejor = -1, mejorD = Infinity;
+    for (let i = desde; i < pts.length; i++) { const d = dist(pts[i], p); if (d < mejorD) { mejorD = d; mejor = i; } }
+    for (let i = desde; i < pts.length; i++) {          // primer paso por el punto (no uno posterior más cercano por casualidad)
+      if (dist(pts[i], p) < 40) {
+        let j = i; while (j + 1 < pts.length && dist(pts[j + 1], p) < dist(pts[j], p)) j++;
+        mejor = j; break;
+      }
+    }
+    if (mejor < 0) return;
+    desde = mejor;
+    res.push({ d: pts[mejor].d, n: k + 1, nombre: p.nombre });
+  });
+  return res;
+}
+
+function mostrarPerfil(segmentos, st, puntosSel = []) {
   const { pts, total } = construirPerfil(segmentos);
   perfilDatos = pts.length > 1 ? pts : null;
+  perfilPuntos = perfilDatos ? ubicarPuntosEnPerfil(pts, puntosSel) : [];
   let t = `<strong>${fmtLong(Math.round(total))}</strong>`;
   if (st.sube !== null) t += ` · ↑${st.sube} m ↓${st.baja} m`;
   document.getElementById("perfilResumen").innerHTML = t;
@@ -1145,7 +1167,7 @@ function mostrarPerfil(segmentos, st) {
 }
 
 function ocultarPerfil() {
-  perfilDatos = null; perfilGeom = null;
+  perfilDatos = null; perfilGeom = null; perfilPuntos = [];
   document.getElementById("mapwrap").classList.remove("conPerfil");
   document.getElementById("perfilGraf").innerHTML = "";
   if (markerPerfil) markerPerfil.getElement().style.display = "none";
@@ -1189,6 +1211,14 @@ function dibujarPerfil() {
     run.push(p);
   });
   cierra();
+  // puntos elegidos por el usuario (mismo número y color que en el mapa)
+  for (const pp of perfilPuntos) {
+    const x = X(pp.d).toFixed(1);
+    s += `<g><title>${esc(pp.nombre || "Punto " + pp.n)}</title>`
+       + `<line x1="${x}" x2="${x}" y1="${MT}" y2="${H - MB}" stroke="${COLOR_RUTA}" stroke-width="1.5" stroke-dasharray="4 3"/>`
+       + `<circle cx="${x}" cy="${MT + 9}" r="9" fill="${COLOR_RUTA}" stroke="#fff" stroke-width="2"/>`
+       + `<text x="${x}" y="${MT + 13}" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">${pp.n}</text></g>`;
+  }
   s += `<line id="pfLinea" y1="${MT}" y2="${H - MB}" stroke="#555" stroke-dasharray="3 3" style="display:none"/>`
      + `<circle id="pfPunto" r="4.5" fill="#fff" stroke="#1a1a1a" stroke-width="2" style="display:none"/></svg>`;
   cont.innerHTML = s;
@@ -1296,7 +1326,7 @@ document.getElementById("btnGenerar").addEventListener("click", async () => {
     let bi = 0;
     r.segmentos.forEach(sg => { sg.color = sg.tipo === "bajada" ? colorDe(soloBajadas[bi++].properties) : COLOR_RUTA; });
     dibujarRuta(r.segmentos);
-    mostrarPerfil(r.segmentos, r.stats);
+    mostrarPerfil(r.segmentos, r.stats, seleccion.filter(x => x.punto));
     mostrarResumenRuta(r.stats);
     document.getElementById("btnDescargarGPX").disabled = false;
     document.getElementById("btnGenerar").textContent = "⬇ Descargar GPX";
