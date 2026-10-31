@@ -170,7 +170,9 @@
   #miRutaLista .item .nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #miRutaLista .item button { flex: none; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: none; color: #6b7580; font-size: 13px; cursor: pointer; }
   #miRutaLista .item button:disabled { opacity: .25; cursor: default; }
-  #miRutaLista .item button.mv:not(:disabled):hover { background: #fff; color: #1f6fd1; }
+  #miRutaLista .item { position: relative; transition: transform .15s; }
+  #miRutaLista .item .asa { flex: none; width: 22px; height: 34px; display: flex; align-items: center; justify-content: center; margin-left: -4px; color: #9aa4ac; font-size: 15px; letter-spacing: -2px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+  #miRutaLista .item.arrastrando { z-index: 3; transition: none; background: #fff; box-shadow: 0 4px 14px rgba(20,35,50,.25); }
   #miRutaLista .item .x { font-size: 18px; }
   #miRutaLista .item .x:hover { color: #d62f2f; background: #fff; }
   .btnInter { min-height: 36px; border: 1px dashed #b9a3c9; background: #faf6fd; border-radius: 8px; font-size: 12px; color: #6a1b9a; cursor: pointer; }
@@ -268,7 +270,7 @@
         <div id="detalle">
           <div class="fila-opc">
             <label class="check" for="volverInicio" title="Al final, volver al primer punto o bajada de la lista"><input type="checkbox" id="volverInicio" checked />Ruta circular</label>
-            <label class="tipo" for="perfil">Tipo
+            <label class="tipo" for="perfil" title="Solo afecta a los enlaces entre bajadas, no a las bajadas">Modo de enrutamiento
 			<select id="perfil">
               <option value="trekking">Trekking</option>
               <option value="safety">Safety (evita carreteras)</option>
@@ -282,7 +284,7 @@
             </select>
             </label>
           </div>
-          <div class="sec-titulo">Ruta: bajadas y puntos (ordénalos con ▲ ▼)</div>
+          <div class="sec-titulo">Ruta: bajadas y puntos (arrastra ⋮⋮ para ordenar)</div>
           <div id="miRutaLista"></div>
           <div id="resumenRuta"></div>
           <button id="btnDescargarGPX" disabled style="display:none">Descargar GPX</button>
@@ -437,6 +439,56 @@ async function toggleRuta(id) {
   guardarMiRuta(); renderMiRuta(); actualizarBotonesRuta(); actualizarPopupBoton(); actualizarBotonGenerar();
 }
 
+// Ordenar la lista arrastrando el asa ⋮⋮ (ratón o dedo)
+function arrastrarItem(ev, asa, cont, el, i) {
+  if (ev.button !== undefined && ev.button !== 0) return;
+  ev.preventDefault(); ev.stopPropagation();
+  const items = [...cont.querySelectorAll(".item")];
+  const scroller = document.getElementById("detalle");
+  const mids = items.map(x => { const r = x.getBoundingClientRect(); return r.top + r.height / 2; });
+  const paso = el.getBoundingClientRect().height + 6;
+  const y0 = ev.clientY, s0 = scroller.scrollTop;
+  let destino = i, yAct = y0;
+  try { asa.setPointerCapture(ev.pointerId); } catch (e) {}
+  el.classList.add("arrastrando");
+  const pinta = () => {
+    const desp = (yAct - y0) + (scroller.scrollTop - s0);
+    el.style.transform = `translateY(${desp}px)`;
+    const centro = mids[i] + desp;
+    let d = 0;
+    mids.forEach((m, j) => { if (j !== i && m < centro) d++; });
+    destino = d;
+    items.forEach((x, j) => {
+      if (j === i) return;
+      x.style.transform = (j > i && j <= destino) ? `translateY(${-paso}px)` : (j < i && j >= destino) ? `translateY(${paso}px)` : "";
+    });
+  };
+  let auto = null;
+  const mueve = (e) => {
+    yAct = e.clientY; pinta();
+    const r = scroller.getBoundingClientRect();
+    clearInterval(auto);
+    if (yAct < r.top + 36) auto = setInterval(() => { scroller.scrollTop -= 8; pinta(); }, 16);
+    else if (yAct > r.bottom - 36) auto = setInterval(() => { scroller.scrollTop += 8; pinta(); }, 16);
+  };
+  const suelta = () => {
+    clearInterval(auto);
+    asa.removeEventListener("pointermove", mueve);
+    asa.removeEventListener("pointerup", suelta);
+    asa.removeEventListener("pointercancel", suelta);
+    if (destino !== i) {
+      const [x] = miRuta.splice(i, 1); miRuta.splice(destino, 0, x);
+      guardarMiRuta(); renderMiRuta();
+    } else {
+      el.classList.remove("arrastrando"); el.style.transform = "";
+      items.forEach(x => { x.style.transform = ""; });
+    }
+  };
+  asa.addEventListener("pointermove", mueve);
+  asa.addEventListener("pointerup", suelta);
+  asa.addEventListener("pointercancel", suelta);
+}
+
 function moverEnRuta(i, dir) {
   const j = i + dir;
   if (j < 0 || j >= miRuta.length) return;
@@ -478,12 +530,11 @@ function renderMiRuta() {
         longTotal += p.longitud_m || 0; caidaTotal += p.caida_m || 0;
         marca = `<span class="punto" style="background:${colorDe(p)}"></span>`; nombre = p.nombre || "(sin nombre)";
       }
-      el.innerHTML = `<span class="num">${i + 1}</span>${marca}<span class="nom">${esc(nombre)}</span>`
-        + `<button class="mv up" title="Subir" aria-label="Subir"${i === 0 ? " disabled" : ""}>▲</button>`
-        + `<button class="mv down" title="Bajar" aria-label="Bajar"${i === miRuta.length - 1 ? " disabled" : ""}>▼</button>`
+      el.innerHTML = `<span class="asa" title="Arrastra para ordenar" aria-label="Arrastrar para ordenar">⋮⋮</span><span class="num">${i + 1}</span>${marca}<span class="nom">${esc(nombre)}</span>`
         + `<button class="x" title="Quitar" aria-label="Quitar">×</button>`;
-      el.querySelector(".up").addEventListener("click", (ev) => { ev.stopPropagation(); moverEnRuta(i, -1); });
-      el.querySelector(".down").addEventListener("click", (ev) => { ev.stopPropagation(); moverEnRuta(i, 1); });
+      const asa = el.querySelector(".asa");
+      asa.addEventListener("click", (ev) => ev.stopPropagation());
+      asa.addEventListener("pointerdown", (ev) => arrastrarItem(ev, asa, cont, el, i));
       el.querySelector(".x").addEventListener("click", (ev) => { ev.stopPropagation(); toggleRuta(id); });
       el.addEventListener("click", () => {
         setPanel(false);
@@ -737,17 +788,22 @@ async function cargarZona() {
   btn.disabled = true;
   const prog = iniciarProgreso(btn);
   try {
-    prog.set("Descargando senderos de OpenStreetMap…");
-    const cand = await OSM.descargarZona(bbox, (m, f) => prog.set(m, f));
+    prog.set("Buscando bajadas en la zona…");
+    // osm.js informa del servidor al que se conecta: se oculta y se muestra un texto sobre las bajadas
+    const sinServidor = (m) => /overpass|servidor|mirror|https?:|\.(de|fr|ru|ch|org|com|net)\b|conect|reintent/i.test(String(m || "")) ? "Buscando bajadas en la zona…" : m;
+    const cand = await OSM.descargarZona(bbox, (m, f) => prog.set(sinServidor(m), f));
     const nuevos = cand.filter(c => !porId.has(c.id) && !descartadas.has(c.id));
     if (!nuevos.length) {
       setEstado(cand.length ? "Todas las bajadas de esta zona ya estaban cargadas." : "No hay senderos con etiquetas MTB en esta zona.");
       return;
     }
-    prog.set(`Comprobando el sentido de ${nuevos.length} bajadas…`);
+    prog.set(`${nuevos.length} bajada${nuevos.length === 1 ? "" : "s"} encontrada${nuevos.length === 1 ? "" : "s"} · comprobando el sentido…`);
     const extremos = [];
     for (const c of nuevos) extremos.push(c.pts[0], c.pts[c.pts.length - 1]);
-    await Elev.obtener(extremos, (hecho, total) => prog.set(`Elevación de los extremos: ${hecho}/${total}`, total ? hecho / total : null));
+    await Elev.obtener(extremos, (hecho, total) => {
+      const fr = total ? hecho / total : null;
+      prog.set(`${nuevos.length} bajadas encontradas · comprobando sentido: ${fr === null ? 0 : Math.min(nuevos.length, Math.round(fr * nuevos.length))}/${nuevos.length}`, fr);
+    });
     let validas = 0, dudosas = 0;
     for (const c of nuevos) {
       const ini = c.pts[0], fin = c.pts[c.pts.length - 1];
@@ -1168,7 +1224,13 @@ function hoverPerfil(ev) {
   }
   markerPerfil.setLngLat([q.lon, q.lat]);
   markerPerfil.getElement().style.display = "";
-  if (ev.pointerType !== "mouse" && !map.getBounds().contains([q.lon, q.lat])) map.panTo([q.lon, q.lat], { duration: 0 });   // en móvil, que la bola no se salga de la pantalla
+  // que la bola se vea siempre: dentro del mapa y por encima del perfil de altimetría
+  const cm = map.getContainer(), px = map.project([q.lon, q.lat]), panel = document.getElementById("perfilAlt");
+  const mx = 40, arriba = 80, abajo = cm.clientHeight - (panel ? panel.offsetHeight : 0) - 40;
+  let dx = 0, dy = 0;
+  if (px.x < mx) dx = px.x - mx; else if (px.x > cm.clientWidth - mx) dx = px.x - (cm.clientWidth - mx);
+  if (px.y < arriba) dy = px.y - arriba; else if (px.y > abajo) dy = px.y - abajo;
+  if (dx || dy) map.panBy([dx, dy], { duration: 0 });
 }
 function salirPerfil() {
   const linea = document.getElementById("pfLinea"), punto = document.getElementById("pfPunto");
@@ -1251,7 +1313,8 @@ document.getElementById("btnGenerar").addEventListener("click", async () => {
 
 function descargarRuta() {
   if (!rutaGenerada) return;
-  window.descargarGPX(rutaGenerada.gpx, "ruta.gpx");
+  const hoy = new Date(), z = n => String(n).padStart(2, "0");
+  window.descargarGPX(rutaGenerada.gpx, `ruta-${hoy.getFullYear()}-${z(hoy.getMonth() + 1)}-${z(hoy.getDate())}.gpx`);
   document.getElementById("estadoRuta").textContent = "GPX descargado ✓";
 }
 document.getElementById("btnDescargarGPX").addEventListener("click", descargarRuta);
