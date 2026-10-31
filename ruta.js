@@ -1,24 +1,22 @@
-// ruta.js — generación de GPX con enlaces BRouter evitando subir por bajadas
+// ruta.js — generación de GPX con enlaces BRouter (única restricción: no volver por la bajada recién hecha)
 // Expone window.generarRutaGPX y window.descargarGPX para el index.html
 //
 // Uso:
 //   generarRutaGPX(seleccion, puntoInicio, puntoFin, perfil, onEstado, todasLasBajadas)
 //   - seleccion:       features (GeoJSON) de las bajadas elegidas, en orden
 //   - puntoInicio/Fin: [lat, lon] o null
-//   - todasLasBajadas: features de TODAS las bajadas descargadas (para bloquear la subida por ellas)
+//   - todasLasBajadas: ya no se usa (se mantiene en la firma por compatibilidad con index.html)
 
 const BROUTER_URL = "https://brouter.de/brouter";
 const MAX_SALTO_AVISO_M = 80;
 const AVISO_ENLACE_LARGO_KM = 20;
 const MIN_ENLACE_M = 30; // enlaces más cortos se saltan (BRouter no aporta nada)
 
-// --- Bloqueo de subidas por bajadas (nogos) ---
-const UMBRAL_CAIDA_NO_SUBIR_M = 15; // bajadas con menos caída que esto: se puede subir por ellas
-const RADIO_NOGO_M = 20;            // radio de cada círculo bloqueado
-const PASO_NOGO_M = 30;             // un nogo cada 30 m (menor que 2*radio => círculos solapados)
-const MAX_NOGOS = 150;              // límite para que la URL no sea enorme
-const MARGEN_ENLACE_GRADOS = 0.015; // ~1.5 km de margen alrededor del enlace
-const DIST_LIBRE_EXTREMOS_M = 40;   // no bloquear inicio/fin del enlace
+// --- Única restricción: no volver por la bajada que se acaba de hacer ---
+const RADIO_NOGO_M = 20;   // radio de cada círculo bloqueado
+const PASO_NOGO_M = 30;    // un nogo cada 30 m (menor que 2*radio => círculos solapados)
+const MAX_NOGOS = 150;     // límite para que la URL no sea enorme
+const DIST_LIBRE_M = 30;   // no bloquear lo que queda a menos de esta distancia del inicio/fin del enlace
 
 function haversine(a, b) {
   const R = 6371000;
@@ -77,31 +75,17 @@ function geometriaBajada(f) {
 }
 
 /**
- * Puntos "nogo" a lo largo de una bajada (uno cada PASO_NOGO_M metros).
- * Solo se generan si la bajada tiene una caída superior al umbral:
- * las casi llanas se pueden subir.
+ * Nogos a lo largo de la bajada que se acaba de hacer (uno cada PASO_NOGO_M metros), recorridos desde su FINAL
+ * hacia atrás: si hubiera que recortar por el límite de la URL, se pierde el principio de la bajada, no el final,
+ * que es justo donde el enlace empezaría a volver. Se dejan libres los extremos del enlace.
  */
-function caidaBajadaM(f) {
-  const v = Number(f.properties.caida_m);
-  if (Number.isFinite(v)) return v;
-  // Sin caida_m: se estima con la elevación del primer y último punto, si existe
-  const c = f.geometry.coordinates;
-  const e0 = c[0] && c[0][2], e1 = c[c.length - 1] && c[c.length - 1][2];
-  return (Number.isFinite(e0) && Number.isFinite(e1)) ? e0 - e1 : 0;
-}
-
-function obtenerNogosDeBajada(f) {
-  if (caidaBajadaM(f) <= UMBRAL_CAIDA_NO_SUBIR_M) return [];
-
+function nogosUltimaBajada(f, desde, hasta) {
   const c = f.geometry.coordinates; // [lon, lat, ele]
-  if (!c || c.length === 0) return [];
-
-  // Se interpola a lo largo de cada tramo para que no queden huecos
-  // aunque la geometría tenga pocos vértices.
-  const nogos = [{ lat: c[0][1], lon: c[0][0] }];
+  if (!c || c.length < 2) return [];
+  const nogos = [{ lat: c[c.length - 1][1], lon: c[c.length - 1][0] }];
   let acum = 0;
-  for (let i = 1; i < c.length; i++) {
-    const a = [c[i - 1][1], c[i - 1][0]], b = [c[i][1], c[i][0]];
+  for (let i = c.length - 1; i > 0; i--) {
+    const a = [c[i][1], c[i][0]], b = [c[i - 1][1], c[i - 1][0]];
     const d = haversine(a, b);
     if (d === 0) continue;
     let pos = PASO_NOGO_M - acum;      // distancia hasta el siguiente nogo dentro de este tramo
@@ -112,25 +96,8 @@ function obtenerNogosDeBajada(f) {
     }
     acum = d - (pos - PASO_NOGO_M);
   }
-  const ult = c[c.length - 1];
-  nogos.push({ lat: ult[1], lon: ult[0] });
-  return nogos;
-}
-
-/**
- * Filtra los nogos que importan para un enlace concreto:
- * solo los cercanos a la zona del enlace y sin tapar su inicio ni su fin.
- */
-function nogosParaEnlace(todos, desde, hasta) {
-  const m = MARGEN_ENLACE_GRADOS;
-  const minLat = Math.min(desde[0], hasta[0]) - m, maxLat = Math.max(desde[0], hasta[0]) + m;
-  const minLon = Math.min(desde[1], hasta[1]) - m, maxLon = Math.max(desde[1], hasta[1]) + m;
-  return todos
-    .filter(n => n.lat > minLat && n.lat < maxLat && n.lon > minLon && n.lon < maxLon)
-    .filter(n => {
-      const p = [n.lat, n.lon];
-      return haversine(p, desde) > DIST_LIBRE_EXTREMOS_M && haversine(p, hasta) > DIST_LIBRE_EXTREMOS_M;
-    })
+  return nogos
+    .filter(n => haversine([n.lat, n.lon], desde) > DIST_LIBRE_M && haversine([n.lat, n.lon], hasta) > DIST_LIBRE_M)
     .slice(0, MAX_NOGOS);
 }
 
@@ -215,11 +182,10 @@ async function generarRutaGPX(seleccion, puntoInicio, puntoFin, perfil, onEstado
   const segmentos = [];
   const waypoints = [];
 
-  // Nogos de TODAS las bajadas descargadas (si no se pasan, solo las seleccionadas)
-  const universo = (todasLasBajadas && todasLasBajadas.length) ? todasLasBajadas : bajadas;
-  const nogoGlobal = universo.flatMap(obtenerNogosDeBajada);
+  let ultimaBajada = null;   // bajada recién hecha: el siguiente enlace no puede volver por ella
 
   async function enlace(desde, hasta, etiqueta) {
+    const previa = ultimaBajada; ultimaBajada = null;
     const d = haversine(desde, hasta);
     if (d < MIN_ENLACE_M) return;
     if (d > AVISO_ENLACE_LARGO_KM * 1000) {
@@ -232,11 +198,12 @@ async function generarRutaGPX(seleccion, puntoInicio, puntoFin, perfil, onEstado
     let pts;
     let conNogo = true;
     try {
-      const nogos = nogosParaEnlace(nogoGlobal, desde, hasta);
+      const nogos = previa ? nogosUltimaBajada(previa, desde, hasta) : [];
       try {
         pts = parsearGPXPuntos(await llamarBRouter(desde[1], desde[0], hasta[1], hasta[0], perfil, nogos));
       } catch (e) {
-        // Sin ruta posible evitando las bajadas: reintenta sin restricciones
+        // Sin ruta posible sin volver por la última bajada: reintenta sin restricciones
+        if (nogos.length === 0) throw e;
         console.warn(`Sin ruta con nogos en ${etiqueta}, reintentando sin ellos`, e);
         pts = parsearGPXPuntos(await llamarBRouter(desde[1], desde[0], hasta[1], hasta[0], perfil, []));
         conNogo = false;
@@ -279,6 +246,7 @@ async function generarRutaGPX(seleccion, puntoInicio, puntoFin, perfil, onEstado
     if (pos) await enlace(pos, ini, pos === puntoInicio ? "enlace inicial" : `enlace ${++nEnlace}`);
     waypoints.push({ lat: ini[0], lon: ini[1], name: `Inicio ${nombre}` });
     segmentos.push({ tipo: "bajada", nombre, puntos: geometriaBajada(item) });
+    ultimaBajada = item;
     estado(`Bajada ${nBajada}/${bajadas.length}: ${nombre}`);
     pos = puntoFinBajada(item);
   }
