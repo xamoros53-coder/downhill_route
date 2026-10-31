@@ -646,21 +646,38 @@ function idbAbrir() {
   });
 }
 let idbTimer = null;
-function guardarBajadasLocal() {
-  clearTimeout(idbTimer);
-  idbTimer = setTimeout(async () => {
-    try {
-      const db = await idbAbrir();
-      const ahora = Date.now(), o = {};
-      for (const [id, f] of porId) o[id] = { t: tiempoCarga.get(id) || ahora, f, tramos: tramosPorId.get(id) || [] };
-      await new Promise(res => {
-        const tx = db.transaction("datos", "readwrite");
-        tx.objectStore("datos").put(o, "bajadas");
-        tx.oncomplete = tx.onerror = tx.onabort = () => res();
-      });
-    } catch (e) { /* sin caché local, la app funciona igual */ }
-  }, 800);
+let guardadoPendiente = false;
+let cargaLocalTerminada = false;   // no se guarda nada hasta haber leído lo que había (evita machacarlo con un mapa vacío)
+async function volcarBajadasLocal() {
+  if (!cargaLocalTerminada) return;
+  guardadoPendiente = false;
+  try {
+    const db = await idbAbrir();
+    const ahora = Date.now(), o = {};
+    for (const [id, f] of porId) o[id] = { t: tiempoCarga.get(id) || ahora, f, tramos: tramosPorId.get(id) || [] };
+    await new Promise((res, rej) => {
+      const tx = db.transaction("datos", "readwrite");
+      tx.objectStore("datos").put(o, "bajadas");
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error || new Error("error al escribir"));
+      tx.onabort = () => rej(tx.error || new Error("escritura cancelada"));
+    });
+    db.close();
+  } catch (e) {
+    console.error("No se pudieron guardar las bajadas en el móvil:", e);
+    setEstado("⚠ No se han podido guardar las bajadas en el móvil (" + (e && e.message || e) + "). Si abres la app desde otra app (WhatsApp, GitHub…) ábrela en Chrome/Safari.");
+  }
 }
+function guardarBajadasLocal() {
+  guardadoPendiente = true;
+  clearTimeout(idbTimer);
+  idbTimer = setTimeout(volcarBajadasLocal, 300);
+}
+// En el móvil, al cambiar de app o cerrar, los temporizadores se congelan: se guarda en ese momento
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && guardadoPendiente) { clearTimeout(idbTimer); volcarBajadasLocal(); } });
+window.addEventListener("pagehide", () => { if (guardadoPendiente) { clearTimeout(idbTimer); volcarBajadasLocal(); } });
+// Pide al navegador que no borre estos datos cuando necesite espacio
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
 async function cargarBajadasLocales() {
   try {
     const db = await idbAbrir();
@@ -669,6 +686,7 @@ async function cargarBajadasLocales() {
       q.onsuccess = () => res(q.result || null);
       q.onerror = () => res(null);
     });
+    db.close();
     if (!o) return 0;
     const ahora = Date.now();
     let n = 0;
@@ -677,7 +695,7 @@ async function cargarBajadasLocales() {
       porId.set(id, b.f); tramosPorId.set(id, b.tramos || []); tiempoCarga.set(id, b.t); n++;
     }
     return n;
-  } catch (e) { return 0; }
+  } catch (e) { console.error("No se pudieron leer las bajadas guardadas:", e); return 0; }
 }
 
 map.on("load", async () => {
@@ -685,6 +703,7 @@ map.on("load", async () => {
     await cargarCapas();
     try { const rd = localStorage.getItem(STORAGE_DESCARTADAS); if (rd) descartadas = new Set(JSON.parse(rd)); } catch (e) {}
     const nLocal = await cargarBajadasLocales();
+    cargaLocalTerminada = true;
     cargarMiRutaGuardado(); renderMiRuta(); actualizarBotonesRuta(); actualizarUIPuntos();
     actualizarMapa();
     if (features.length) {
@@ -692,6 +711,7 @@ map.on("load", async () => {
       if (nLocal) setEstado(`${nLocal} bajada${nLocal === 1 ? "" : "s"} recuperada${nLocal === 1 ? "" : "s"} del móvil. Pulsa «Cargar esta zona» para añadir más.`);
     } else setEstado("Acerca el mapa a tu zona y pulsa «Cargar esta zona».");
   } catch (e) {
+    cargaLocalTerminada = true;
     setEstado("Error al iniciar el mapa: " + e.message);
     console.error(e);
   }
