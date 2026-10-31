@@ -632,13 +632,65 @@ function badgeFiab(p) { return p.fiabilidad === "osm" ? `<span class="badge osm"
 function setEstado(msg) { document.getElementById("estadoRuta").textContent = msg || ""; }
 window.Elev.aviso = setEstado;   // esperas por límite de peticiones de Open-Meteo
 
+// ---- Caché en el móvil: todas las bajadas cargadas se guardan en IndexedDB y reaparecen al abrir la app ----
+const IDB_NOMBRE = "ridebajadas_v1";
+const IDB_TTL_MS = 30 * 24 * 3600 * 1000;   // pasado este tiempo se vuelven a descargar (OSM cambia)
+const tiempoCarga = new Map();               // id -> momento en que se descargó
+function idbAbrir() {
+  return new Promise((res, rej) => {
+    if (!window.indexedDB) return rej(new Error("sin IndexedDB"));
+    const r = indexedDB.open(IDB_NOMBRE, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("datos");
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+let idbTimer = null;
+function guardarBajadasLocal() {
+  clearTimeout(idbTimer);
+  idbTimer = setTimeout(async () => {
+    try {
+      const db = await idbAbrir();
+      const ahora = Date.now(), o = {};
+      for (const [id, f] of porId) o[id] = { t: tiempoCarga.get(id) || ahora, f, tramos: tramosPorId.get(id) || [] };
+      await new Promise(res => {
+        const tx = db.transaction("datos", "readwrite");
+        tx.objectStore("datos").put(o, "bajadas");
+        tx.oncomplete = tx.onerror = tx.onabort = () => res();
+      });
+    } catch (e) { /* sin caché local, la app funciona igual */ }
+  }, 800);
+}
+async function cargarBajadasLocales() {
+  try {
+    const db = await idbAbrir();
+    const o = await new Promise(res => {
+      const q = db.transaction("datos").objectStore("datos").get("bajadas");
+      q.onsuccess = () => res(q.result || null);
+      q.onerror = () => res(null);
+    });
+    if (!o) return 0;
+    const ahora = Date.now();
+    let n = 0;
+    for (const [id, b] of Object.entries(o)) {
+      if (!b || !b.f || descartadas.has(id) || ahora - b.t > IDB_TTL_MS) continue;
+      porId.set(id, b.f); tramosPorId.set(id, b.tramos || []); tiempoCarga.set(id, b.t); n++;
+    }
+    return n;
+  } catch (e) { return 0; }
+}
+
 map.on("load", async () => {
   try {
     await cargarCapas();
+    try { const rd = localStorage.getItem(STORAGE_DESCARTADAS); if (rd) descartadas = new Set(JSON.parse(rd)); } catch (e) {}
+    const nLocal = await cargarBajadasLocales();
     cargarMiRutaGuardado(); renderMiRuta(); actualizarBotonesRuta(); actualizarUIPuntos();
     actualizarMapa();
-    if (features.length) ajustarVista();
-    else setEstado("Acerca el mapa a tu zona y pulsa «Cargar esta zona».");
+    if (features.length) {
+      ajustarVista();
+      if (nLocal) setEstado(`${nLocal} bajada${nLocal === 1 ? "" : "s"} recuperada${nLocal === 1 ? "" : "s"} del móvil. Pulsa «Cargar esta zona» para añadir más.`);
+    } else setEstado("Acerca el mapa a tu zona y pulsa «Cargar esta zona».");
   } catch (e) {
     setEstado("Error al iniciar el mapa: " + e.message);
     console.error(e);
@@ -715,9 +767,10 @@ async function cargarZona() {
       const ini = c.pts[0], fin = c.pts[c.pts.length - 1];
       const r = OSM.evaluar(c, Elev.ele(ini[0], ini[1]), Elev.ele(fin[0], fin[1]));
       if (!r) { dudosas++; continue; }   // ante la duda, no se muestra
-      porId.set(c.id, r.feature); tramosPorId.set(c.id, r.tramos); validas++;
+      porId.set(c.id, r.feature); tramosPorId.set(c.id, r.tramos); tiempoCarga.set(c.id, Date.now()); validas++;
     }
     actualizarMapa();
+    guardarBajadasLocal();
     setEstado(validas
       ? `${validas} bajada${validas === 1 ? "" : "s"} cargada${validas === 1 ? "" : "s"} · ${dudosas} descartada${dudosas === 1 ? "" : "s"} por sentido dudoso`
       : `No hay bajadas nuevas con sentido fiable (${dudosas} descartada${dudosas === 1 ? "" : "s"} por sentido dudoso).`);
@@ -741,6 +794,7 @@ function asegurarPerfil(id) {
     try {
       const r = await Elev.cargarPerfil(f);
       if (!r.ok) { descartarBajada(id, r.motivo); return false; }
+      guardarBajadasLocal();   // el perfil cambia la geometría: se actualiza la copia del móvil
       return true;
     } finally {
       perfilesEnCurso.delete(id);
@@ -753,7 +807,8 @@ function asegurarPerfil(id) {
 function descartarBajada(id, motivo) {
   const f = porId.get(id);
   const nombre = f && f.properties.nombre ? `«${f.properties.nombre}»` : "Una bajada";
-  porId.delete(id); tramosPorId.delete(id); descartadas.add(id);
+  porId.delete(id); tramosPorId.delete(id); tiempoCarga.delete(id); descartadas.add(id);
+  guardarBajadasLocal();
   try { localStorage.setItem(STORAGE_DESCARTADAS, JSON.stringify([...descartadas])); } catch (e) {}
   if (seleccionada === id) deseleccionar();
   const i = miRuta.indexOf(id);
@@ -912,7 +967,14 @@ function deseleccionar() {
 
 function ajustarVista() {
   const b = new maplibregl.LngLatBounds();
-  features.forEach(f => f.geometry.coordinates.forEach(c => b.extend([c[0], c[1]])));
+  // Con la caché local puede haber bajadas de varias zonas: se encuadra la ruta o, si no hay, la última zona cargada
+  let lista = miRuta.filter(id => !esPunto(id)).map(id => porId.get(id)).filter(Boolean);
+  if (!lista.length) {
+    const ultimo = Math.max(0, ...features.map(f => tiempoCarga.get(idDe(f)) || 0));
+    lista = features.filter(f => ultimo - (tiempoCarga.get(idDe(f)) || 0) < 2 * 3600 * 1000);
+  }
+  if (!lista.length) lista = features;
+  lista.forEach(f => f.geometry.coordinates.forEach(c => b.extend([c[0], c[1]])));
   if (!b.isEmpty()) map.fitBounds(b, { padding: 60, duration: 0 });
 }
 

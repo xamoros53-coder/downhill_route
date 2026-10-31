@@ -22,7 +22,7 @@
   // las diferencias pequeñas son ruido: se exige caída y pendiente mínimas entre extremos.
   const MIN_CAIDA_M = 8;
   const MIN_PEND_PCT = 2;
-  const CACHE_TTL_MS = 24 * 3600 * 1000;
+  const CACHE_TTL_MS = 7 * 24 * 3600 * 1000;   // 7 días: los senderos de OSM cambian poco
   const TIMEOUT_MS = 60000;        // espera máxima por servidor
   const ESCALONADO_MS = 7000;      // si un servidor no responde en este tiempo, se lanza también el siguiente
   const MAX_ZONAS_CACHE = 4;       // zonas recientes que se guardan para no volver a descargarlas
