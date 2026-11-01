@@ -86,6 +86,8 @@
   #perfilAlt .cab button:hover { color: #d62f2f; }
   #perfilGraf { height: 124px; cursor: crosshair; touch-action: none; user-select: none; -webkit-user-select: none; }
   #perfilGraf .vacio { padding: 30px 14px; color: #999; font-size: 12px; }
+  #fichaPerfil { height: 92px; margin: 0 0 2px; cursor: crosshair; touch-action: none; user-select: none; -webkit-user-select: none; }
+  #fichaPerfilInfo { height: 15px; margin-bottom: 6px; font: 11px ui-monospace, monospace; color: #555; white-space: nowrap; overflow: hidden; }
   #ficha h3 { margin: 0 24px 6px 0; font-size: 15px; }
   #ficha table { border-collapse: collapse; }
   #ficha td { padding: 2px 8px 2px 0; vertical-align: top; }
@@ -226,74 +228,6 @@
   @media (max-width: 720px) {
     #btnZona { top: 10px; left: 62px; height: 44px; padding: 0 14px; }
   }
-
-  /* ===== Interfaz renovada y configuración ===== */
-  :root { --verde-app:#236b45; --verde-app-dark:#194d34; --tinta:#20312a; --fondo-app:#f5f7f5; }
-  #btnZona { background:var(--verde-app); border-radius:13px; box-shadow:0 4px 14px rgba(20,45,32,.2); }
-  #btnZona:hover { background:var(--verde-app-dark); }
-  #btnConfig { position:absolute; z-index:9; top:12px; right:12px; width:46px; height:46px; border:0; border-radius:14px; background:#fff; color:#263b30; font-size:22px; box-shadow:0 2px 12px rgba(0,0,0,.2); cursor:pointer; }
-  #btnConfig:active { transform:scale(.96); }
-  #estadoCache { position:absolute; z-index:8; top:66px; left:66px; max-width:min(360px,calc(100% - 132px)); padding:7px 11px; border:1px solid rgba(35,107,69,.12); border-radius:999px; background:rgba(255,255,255,.94); color:#52645a; font-size:11px; line-height:1.2; box-shadow:0 2px 9px rgba(0,0,0,.10); pointer-events:none; }
-  #estadoCache.vacia { color:#7b8580; }
-  .btn-danger-soft { width:100%; min-height:44px; border:1px solid #e7c7c3; border-radius:11px; background:#fff8f7; color:#a43b32; font-size:13px; font-weight:650; cursor:pointer; }
-  .btn-danger-soft:active { background:#fcecea; }
-  #barraRuta { background:#fff; padding:12px 14px; gap:12px; }
-  #barraRuta .grip { background:#c7d2ca; }
-  .barra-txt .t1 { color:#203b2c; font-size:15px; }
-  .barra-txt .tot { color:#68766e; font-size:11px; }
-  #btnGenerar { background:var(--verde-app); border-radius:12px; min-height:44px; padding:0 17px; box-shadow:0 2px 6px rgba(35,107,69,.16); }
-  #btnGenerar:hover { background:var(--verde-app-dark); }
-  #estadoRuta { color:#53665a; background:#f8faf8; }
-  #detalle { gap:12px; padding:14px; }
-  .ayuda-ruta { margin:0; padding:11px 12px; border-radius:12px; background:#f0f6f1; color:#53665a; font-size:12px; line-height:1.5; }
-  #miRutaLista .item { min-height:46px; border-radius:12px; background:#f5f7f5; border-color:#e2e9e3; }
-  #miRutaLista .item.punto-inter { background:#f7f2fa; }
-  #miRutaLista .item .nom { font-size:13px; color:#26372d; }
-  .acciones button { min-height:42px; border-radius:11px; }
-  #ficha { border:1px solid #e5ebe6; border-radius:16px; box-shadow:0 8px 28px rgba(20,35,25,.2); padding:14px; }
-  #ficha .popup-add, .maplibregl-popup-content .popup-add { min-height:46px; padding:11px 14px; border:0; border-radius:12px; background:var(--verde-app); color:#fff; font-size:14px; font-weight:700; box-shadow:0 3px 8px rgba(35,107,69,.2); }
-  #ficha .popup-add:hover, .maplibregl-popup-content .popup-add:hover { background:var(--verde-app-dark); }
-  #ficha .popup-add.in, .maplibregl-popup-content .popup-add.in { background:#64746a; }
-  .maplibregl-popup-content { border-radius:14px; box-shadow:0 6px 22px rgba(20,35,25,.2); }
-  .maplibregl-popup-content .popup-add { width:100%; margin-top:12px; }
-  .modal-overlay { position:fixed; inset:0; z-index:1000; display:none; align-items:center; justify-content:center; padding:18px; background:rgba(12,24,17,.48); backdrop-filter:blur(3px); }
-  .modal-overlay.abierto { display:flex; }
-  .modal-card { width:min(100%,440px); max-height:min(88dvh,720px); overflow:auto; padding:22px; border-radius:22px; background:#fff; color:#20312a; box-shadow:0 18px 60px rgba(0,0,0,.25); }
-  .modal-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:18px; }
-  .modal-kicker { display:block; color:#718078; font-size:10px; font-weight:800; letter-spacing:.12em; }
-  .modal-card h2 { margin:4px 0 0; font-size:23px; line-height:1.2; }
-  .modal-close { width:36px; height:36px; border:0; border-radius:50%; background:#f0f3f0; color:#53635a; font-size:23px; cursor:pointer; }
-  .config-seccion { padding:15px 0; border-top:1px solid #edf1ed; }
-  .config-seccion h3 { margin:0 0 5px; font-size:14px; }
-  .config-seccion p { margin:0 0 11px; color:#718078; font-size:12px; line-height:1.5; }
-  .config-select { width:100%; min-height:46px; padding:0 12px; border:1px solid #d5dfd7; border-radius:11px; background:#fff; color:#20312a; font-size:14px; }
-  .perfil-ayuda { margin-top:9px; padding:10px 11px; border-radius:10px; background:#f4f7f4; color:#5d6c62; font-size:12px; line-height:1.5; }
-  .config-check { display:flex; align-items:center; justify-content:space-between; gap:14px; cursor:pointer; }
-  .config-check strong, .config-check small { display:block; }
-  .config-check strong { font-size:13px; }
-  .config-check small { margin-top:4px; max-width:290px; color:#718078; font-size:11px; line-height:1.45; }
-  .config-check input { flex:none; width:22px; height:22px; accent-color:var(--verde-app); }
-  .modal-actions { padding-top:14px; }
-  .btn-primary, .btn-secondary { width:100%; min-height:48px; border-radius:12px; font-size:14px; font-weight:700; cursor:pointer; }
-  .btn-primary { border:0; background:var(--verde-app); color:#fff; }
-  .btn-primary:hover { background:var(--verde-app-dark); }
-  .btn-secondary { margin-top:9px; border:1px solid #d9e1da; background:#fff; color:#435349; }
-  .draft-card { text-align:center; width:min(100%,390px); padding:26px 22px 22px; }
-  .draft-icon { display:grid; place-items:center; width:54px; height:54px; margin:0 auto 14px; border-radius:17px; background:#edf5ef; color:var(--verde-app); font-size:27px; }
-  .draft-card h2 { margin:7px 0 10px; }
-  .draft-card p { margin:0 0 20px; color:#718078; font-size:13px; line-height:1.55; }
-  @media (max-width:720px) {
-    #btnConfig { top:10px; right:10px; width:44px; height:44px; }
-    #estadoCache { top:61px; left:50%; transform:translateX(-50%); max-width:calc(100% - 24px); white-space:nowrap; }
-    #btnZona { left:62px; right:62px; width:auto; padding:0 8px; font-size:13px; }
-    #busquedaWrap { width:46px; }
-    #busquedaPanel.abierto { width:min(340px,calc(100vw - 20px)); }
-    #barraRuta { padding:22px 12px 10px; }
-    #miRuta.abierto #detalle { max-height:52dvh; }
-    #ficha { width:min(350px,calc(100% - 20px)); left:10px; bottom:10px; }
-    .modal-card { padding:20px; border-radius:19px; }
-  }
-
 </style>
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="64x64" href="./icons/favicon-64.png">
@@ -314,8 +248,6 @@
       </div>
     </div>
     <button id="btnZona" type="button" title="Descarga las bajadas MTB de OpenStreetMap que se ven en el mapa">Cargar esta zona</button>
-    <div id="estadoCache" class="vacia" aria-live="polite" title="Antigüedad de los datos guardados en este dispositivo">Caché de bajadas: comprobando…</div>
-    <button id="btnConfig" type="button" aria-label="Configuración" title="Configuración">⚙</button>
     <div id="ficha"></div>
     <div id="perfilAlt">
       <div class="cab"><span id="perfilResumen"></span><span id="perfilInfo"></span><button id="perfilCerrar" title="Ocultar perfil">×</button></div>
@@ -338,21 +270,23 @@
       <div id="progresoZona"><i></i></div>
       <div id="detalleWrap">
         <div id="detalle">
-          <div class="sec-titulo">Tu recorrido</div>
-          <p class="ayuda-ruta">Carga una zona en el mapa y toca las bajadas o los puntos por los que quieres pasar. Después, genera tu ruta.</p>
-          <input type="checkbox" id="modoAmplio" hidden />
-          <input type="checkbox" id="volverInicio" checked hidden />
-          <select id="perfil" hidden>
-            <option value="trekking">Trekking</option>
-            <option value="safety">Safety (evita carreteras)</option>
-            <option value="mtb">MTB</option>
-            <option value="gravel">Gravel</option>
-            <option value="fastbike">Fastbike</option>
-            <option value="fastbike-verylowtraffic">Fastbike muy poco tráfico</option>
-            <option value="hiking-mountain">Senderismo de montaña</option>
-            <option value="shortest">Más corto</option>
-            <option value="__otro__">Otro (escribir nombre)…</option>
-          </select>
+          <div class="fila-opc">
+            <label class="check" for="modoAmplio" title="Añade senderos abiertos a la bici que no llevan etiquetas MTB en OSM. Pueden incluir senderos que no son de bajada. Zona máxima 120 km²"><input type="checkbox" id="modoAmplio" />Incluir senderos sin etiqueta MTB (experimental)</label>
+            <label class="check" for="volverInicio" title="Al final, volver al primer punto o bajada de la lista"><input type="checkbox" id="volverInicio" checked />Ruta circular</label>
+            <label class="tipo" for="perfil" title="Solo afecta a los enlaces entre bajadas, no a las bajadas">Modo de enrutamiento
+			<select id="perfil">
+              <option value="trekking">Trekking</option>
+              <option value="safety">Safety (evita carreteras)</option>
+              <option value="mtb">MTB</option>
+              <option value="gravel">Gravel</option>
+              <option value="fastbike">Fastbike</option>
+              <option value="fastbike-verylowtraffic">Fastbike muy poco tráfico</option>
+              <option value="hiking-mountain">Senderismo de montaña</option>
+              <option value="shortest">Más corto</option>
+              <option value="__otro__">Otro (escribir nombre)…</option>
+            </select>
+            </label>
+          </div>
           <div class="sec-titulo">Ruta: bajadas y puntos (arrastra ⋮⋮ para ordenar)</div>
           <div id="miRutaLista"></div>
           <div id="resumenRuta"></div>
@@ -364,37 +298,6 @@
       </div>
     </div>
   </aside>
-</div>
-
-<div id="modalConfig" class="modal-overlay" aria-hidden="true">
-  <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="configTitulo">
-    <div class="modal-head"><div><span class="modal-kicker">PERSONALIZA TU EXPERIENCIA</span><h2 id="configTitulo">Configuración</h2></div><button class="modal-close" data-close-config aria-label="Cerrar">×</button></div>
-    <div class="config-seccion"><h3>Perfil de enrutamiento</h3><p>Solo afecta a los enlaces que conectan las bajadas; no modifica las bajadas seleccionadas.</p>
-      <select id="perfilConfig" class="config-select">
-        <option value="trekking">Trekking</option><option value="safety">Safety (evita carreteras)</option><option value="mtb">MTB</option><option value="gravel">Gravel</option><option value="fastbike">Fastbike</option><option value="fastbike-verylowtraffic">Fastbike muy poco tráfico</option><option value="hiking-mountain">Senderismo de montaña</option><option value="shortest">Más corto</option><option value="__otro__">Otro perfil de BRouter…</option>
-      </select>
-      <div id="perfilAyuda" class="perfil-ayuda">Elige cómo quieres calcular los tramos de conexión entre bajadas.</div>
-    </div>
-    <div class="config-seccion"><h3>Preferencias de senderos</h3>
-      <label class="config-check"><span><strong>Incluir senderos sin etiqueta MTB</strong><small>Amplía la búsqueda a senderos abiertos a bicicletas. Es experimental y puede incluir tramos que no sean bajadas.</small></span><input type="checkbox" id="modoAmplioConfig"></label>
-    </div>
-    <div class="config-seccion"><h3>Preferencias de recorrido</h3>
-      <label class="config-check"><span><strong>Ruta circular</strong><small>Al terminar, intenta volver al primer punto o bajada de la lista.</small></span><input type="checkbox" id="volverInicioConfig" checked></label>
-    </div>
-    <div class="config-seccion"><h3>Caché de bajadas</h3><p>Guarda en este dispositivo las bajadas descargadas para no tener que volver a consultarlas cada vez. Borrar la caché no elimina tu ruta guardada ni tus preferencias.</p>
-      <button class="btn-danger-soft" id="borrarCache" type="button">Borrar caché de bajadas</button>
-    </div>
-    <div class="modal-actions"><button class="btn-primary" id="guardarConfig">Guardar preferencias</button></div>
-  </section>
-</div>
-
-<div id="modalBorrador" class="modal-overlay" aria-hidden="true">
-  <section class="modal-card draft-card" role="dialog" aria-modal="true" aria-labelledby="borradorTitulo">
-    <div class="draft-icon">↗</div><span class="modal-kicker">BIENVENIDO DE NUEVO</span><h2 id="borradorTitulo">Tienes una ruta pendiente</h2>
-    <p>Hemos guardado tu selección anterior. ¿Quieres continuar donde lo dejaste o empezar un recorrido nuevo?</p>
-    <button class="btn-primary" id="continuarBorrador">Continuar mi ruta</button>
-    <button class="btn-secondary" id="nuevoBorrador">Empezar una ruta nueva</button>
-  </section>
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
@@ -414,7 +317,7 @@ const map = new maplibregl.Map({
   },
   center: [2.33, 41.52],
   zoom: 12,
-  customAttribution: 'Elevación: Copernicus DEM vía <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>'
+  customAttribution: 'Elevación: MDT05 © <a href="https://www.ign.es/" target="_blank" rel="noopener">IGN</a> (CC BY 4.0) · respaldo: Copernicus DEM vía <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>'
 });
 
 map.addControl(new maplibregl.NavigationControl(), "top-right");
@@ -433,7 +336,6 @@ let cargandoZona = false;
 const perfilesEnCurso = new Map(); // id -> Promise (no se pide dos veces el mismo perfil)
 
 const STORAGE_KEY = "miRuta_v2";
-const STORAGE_CONFIG = "ridePlanner_config_v1";
 const STORAGE_BAJADAS = "miRuta_bajadas_v2";
 const STORAGE_DESCARTADAS = "descartadas_v2";
 const STORAGE_INICIO = "miRuta_inicio_v1";
@@ -483,94 +385,6 @@ barraRutaEl.addEventListener("click", (e) => {                       // toque en
   setPanel(!miRutaEl.classList.contains("abierto"));
 });
 
-function abrirModal(id) { const el = document.getElementById(id); el.classList.add("abierto"); el.setAttribute("aria-hidden", "false"); }
-function cerrarModal(id) { const el = document.getElementById(id); el.classList.remove("abierto"); el.setAttribute("aria-hidden", "true"); }
-const ayudasPerfil = {
-  trekking: "Perfil pensado para calcular conexiones siguiendo criterios de desplazamiento a pie.",
-  safety: "Perfil Safety: la opción está descrita en la app como orientada a evitar carreteras.",
-  mtb: "Perfil orientado a conexiones para bicicleta de montaña.",
-  gravel: "Perfil orientado a recorridos de gravel.",
-  fastbike: "Perfil orientado a desplazamientos rápidos en bicicleta.",
-  "fastbike-verylowtraffic": "Perfil rápido que prioriza vías con muy poco tráfico.",
-  "hiking-mountain": "Perfil orientado al senderismo de montaña.",
-  shortest: "Busca la conexión más corta por distancia. Puede no ser la opción más cómoda o ciclable."
-};
-function sincronizarConfigDesdeControles() {
-  const valorPerfil = document.getElementById("perfil").value;
-  const selConfig = document.getElementById("perfilConfig");
-  if (![...selConfig.options].some(o => o.value === valorPerfil)) selConfig.insertBefore(new Option(valorPerfil, valorPerfil), selConfig.querySelector('option[value="__otro__"]'));
-  selConfig.value = valorPerfil;
-  document.getElementById("modoAmplioConfig").checked = document.getElementById("modoAmplio").checked;
-  document.getElementById("volverInicioConfig").checked = document.getElementById("volverInicio").checked;
-  document.getElementById("perfilAyuda").textContent = ayudasPerfil[document.getElementById("perfil").value] || "Perfil personalizado de BRouter.";
-}
-function cargarConfiguracion() {
-  try {
-    const c = JSON.parse(localStorage.getItem(STORAGE_CONFIG) || "{}");
-    if (c.perfil) {
-      const sel = document.getElementById("perfil");
-      if (![...sel.options].some(o => o.value === c.perfil)) sel.insertBefore(new Option(c.perfil, c.perfil), sel.querySelector('option[value="__otro__"]'));
-      sel.value = c.perfil;
-    }
-    if (typeof c.modoAmplio === "boolean") document.getElementById("modoAmplio").checked = c.modoAmplio;
-    if (typeof c.volverInicio === "boolean") document.getElementById("volverInicio").checked = c.volverInicio;
-  } catch (e) {}
-  OSM.setModoAmplio(document.getElementById("modoAmplio").checked);
-  sincronizarConfigDesdeControles();
-}
-function guardarConfiguracion() {
-  try { localStorage.setItem(STORAGE_CONFIG, JSON.stringify({ perfil: document.getElementById("perfil").value, modoAmplio: document.getElementById("modoAmplio").checked, volverInicio: document.getElementById("volverInicio").checked })); } catch (e) {}
-}
-document.getElementById("btnConfig").addEventListener("click", () => { sincronizarConfigDesdeControles(); abrirModal("modalConfig"); });
-document.querySelectorAll("[data-close-config]").forEach(b => b.addEventListener("click", () => cerrarModal("modalConfig")));
-document.getElementById("perfilConfig").addEventListener("change", e => {
-  let v=e.target.value; const sel=document.getElementById("perfil");
-  if (v === "__otro__") { v=(prompt("Nombre exacto del perfil de BRouter (por ejemplo: mtb, gravel, trekking):") || "").trim(); if (!v) { sincronizarConfigDesdeControles(); return; } }
-  if (![...sel.options].some(o=>o.value===v)) sel.insertBefore(new Option(v,v),sel.querySelector('option[value="__otro__"]'));
-  sel.value=v; sincronizarConfigDesdeControles(); invalidarRuta();
-});
-document.getElementById("modoAmplioConfig").addEventListener("change", e => { document.getElementById("modoAmplio").checked=e.target.checked; OSM.setModoAmplio(e.target.checked); });
-document.getElementById("volverInicioConfig").addEventListener("change", e => { document.getElementById("volverInicio").checked=e.target.checked; invalidarRuta(); });
-document.getElementById("guardarConfig").addEventListener("click", () => { guardarConfiguracion(); cerrarModal("modalConfig"); setEstado("Preferencias guardadas."); });
-async function borrarCacheBajadas() {
-  if (!window.confirm("¿Quieres borrar las bajadas guardadas en este dispositivo? Tu ruta pendiente y tus preferencias se conservarán.")) return;
-  try {
-    const db = await idbAbrir();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction("datos", "readwrite");
-      tx.objectStore("datos").delete("bajadas");
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error || new Error("No se pudo borrar la caché"));
-      tx.onabort = () => reject(tx.error || new Error("El borrado se canceló"));
-    });
-    db.close();
-    // Mantener visibles las bajadas que forman parte del borrador actual.
-    for (const id of [...porId.keys()]) {
-      if (!miRuta.includes(id)) { porId.delete(id); tramosPorId.delete(id); }
-    }
-    tiempoCarga.clear();
-    cacheMeta = { count: 0, oldest: 0, newest: 0 };
-    cacheDesactivada = true;
-    actualizarMapa();
-    pintarEstadoCache();
-    cerrarModal("modalConfig");
-    setEstado("Caché borrada. Tu ruta pendiente y tus preferencias se han conservado.");
-  } catch (e) {
-    console.error(e);
-    setEstado("No se pudo borrar la caché: " + e.message);
-  }
-}
-document.getElementById("borrarCache").addEventListener("click", borrarCacheBajadas);
-document.getElementById("modalConfig").addEventListener("click", e => { if (e.target.id === "modalConfig") cerrarModal("modalConfig"); });
-document.getElementById("continuarBorrador").addEventListener("click", () => { cerrarModal("modalBorrador"); renderMiRuta(); actualizarBotonesRuta(); actualizarBotonGenerar(); setEstado("Ruta anterior recuperada."); });
-document.getElementById("nuevoBorrador").addEventListener("click", () => {
-  miRuta.length = 0; puntosInter.clear(); puntoInicio = null; puntoFin = null;
-  [STORAGE_KEY, STORAGE_BAJADAS, STORAGE_INTER, STORAGE_INICIO, STORAGE_FIN].forEach(k => localStorage.removeItem(k));
-  invalidarRuta(); renderMiRuta(); actualizarBotonesRuta(); actualizarBotonGenerar(); cerrarModal("modalBorrador");
-  setEstado("Ruta nueva. Selecciona las bajadas y los puntos en el mapa.");
-});
-
-
 function cargarMiRutaGuardado() {
   try {
     const rd = localStorage.getItem(STORAGE_DESCARTADAS);
@@ -579,7 +393,7 @@ function cargarMiRutaGuardado() {
     const rb = localStorage.getItem(STORAGE_BAJADAS);
     if (rb) {
       for (const [id, b] of Object.entries(JSON.parse(rb))) {
-        if (b && b.f && b.f.properties && b.f.properties.perfil_cargado) { porId.set(id, b.f); tramosPorId.set(id, b.tramos || []); }
+        if (b && b.f && b.f.properties && b.f.properties.perfil_cargado) { marcarPerfilObsoleto(b.f); porId.set(id, b.f); tramosPorId.set(id, b.tramos || []); }
       }
     }
     const rp = localStorage.getItem(STORAGE_INTER);
@@ -627,7 +441,6 @@ async function toggleRuta(id) {
     if (!miRuta.includes(id)) miRuta.push(id);
   }
   guardarMiRuta(); renderMiRuta(); actualizarBotonesRuta(); actualizarPopupBoton(); actualizarBotonGenerar();
-  if (i < 0) deseleccionar();
 }
 
 // Ordenar la lista arrastrando el asa ⋮⋮ (ratón o dedo)
@@ -758,7 +571,7 @@ function actualizarPopupBoton() {
 }
 function actualizarUIPuntos() { actualizarBotonGenerar(); }
 function actualizarBotonGenerar() { document.getElementById("btnGenerar").disabled = !miRuta.some(id => !esPunto(id)); }
-document.getElementById("volverInicio").addEventListener("change", () => { invalidarRuta(); actualizarUIPuntos(); guardarConfiguracion(); sincronizarConfigDesdeControles(); });
+document.getElementById("volverInicio").addEventListener("change", () => { invalidarRuta(); actualizarUIPuntos(); });
 document.getElementById("perfil").addEventListener("change", (ev) => {
   const sel = ev.target;
   if (sel.value === "__otro__") {
@@ -775,8 +588,6 @@ document.getElementById("perfil").addEventListener("change", (ev) => {
     }
   }
   invalidarRuta();
-  guardarConfiguracion();
-  sincronizarConfigDesdeControles();
 });
 
 
@@ -800,7 +611,7 @@ map.on("click", (e) => {
   cont.innerHTML = `<h3>Añadir punto a la ruta</h3>
     <div id="lugarPunto" style="font-weight:600;color:#243746">Buscando el lugar…</div>
     <div style="color:#8a939b;font-size:11px;margin-top:2px">${lat.toFixed(5)}, ${lon.toFixed(5)}</div>
-    <button class="popup-add" data-a="inter">＋ Añadir punto a mi ruta</button>`;
+    <button class="popup-add" data-a="inter">📍 Añadir punto</button>`;
   lugarP.then(n => { const el = cont.querySelector("#lugarPunto"); if (el) el.textContent = n || "Punto en el mapa"; });
   cont.addEventListener("click", async (ev) => {
     const btn = ev.target.closest("button[data-a]"); if (!btn) return;
@@ -840,43 +651,12 @@ async function fetchJson(url) { const r = await fetch(url); if (!r.ok) throw new
 function badgeFiab(p) { return p.fiabilidad === "osm" ? `<span class="badge osm">OSM</span>` : `<span class="badge det">detectada</span>`; }
 
 function setEstado(msg) { document.getElementById("estadoRuta").textContent = msg || ""; }
-window.Elev.aviso = setEstado;   // esperas por límite de peticiones de Open-Meteo
+window.Elev.aviso = setEstado;   // esperas por límite de peticiones de Open-Meteo (solo el respaldo)
 
 // ---- Caché en el móvil: todas las bajadas cargadas se guardan en IndexedDB y reaparecen al abrir la app ----
 const IDB_NOMBRE = "ridebajadas_v1";
 const IDB_TTL_MS = 30 * 24 * 3600 * 1000;   // pasado este tiempo se vuelven a descargar (OSM cambia)
 const tiempoCarga = new Map();               // id -> momento en que se descargó
-let cacheMeta = { count: 0, oldest: 0, newest: 0 };
-let cacheDesactivada = false; // evita que el contenido que sigue en memoria se vuelva a guardar tras borrar la caché
-function edadLegible(ms) {
-  if (!ms || ms < 0) return "ahora";
-  const minutos = Math.floor(ms / 60000);
-  if (minutos < 1) return "menos de 1 min";
-  if (minutos < 60) return `hace ${minutos} min`;
-  const horas = Math.floor(minutos / 60);
-  if (horas < 24) return `hace ${horas} h`;
-  const dias = Math.floor(horas / 24);
-  return `hace ${dias} día${dias === 1 ? "" : "s"}`;
-}
-function pintarEstadoCache() {
-  const el = document.getElementById("estadoCache");
-  if (!el) return;
-  if (!cacheMeta.count) {
-    el.textContent = "Caché de bajadas: vacía";
-    el.classList.add("vacia");
-    el.title = "No hay bajadas guardadas en la caché de este dispositivo.";
-    return;
-  }
-  const antiguedad = edadLegible(Date.now() - cacheMeta.oldest);
-  el.textContent = `Caché: ${cacheMeta.count} bajadas · más antigua ${antiguedad}`;
-  el.classList.remove("vacia");
-  el.title = `La bajada más antigua guardada tiene ${antiguedad.replace("hace ", "")} de antigüedad. Última actualización: ${edadLegible(Date.now() - cacheMeta.newest)}.`;
-}
-function actualizarMetaCacheDesdeMemoria() {
-  const tiempos = [...tiempoCarga.values()].filter(t => Number.isFinite(t) && t > 0);
-  cacheMeta = tiempos.length ? { count: tiempos.length, oldest: Math.min(...tiempos), newest: Math.max(...tiempos) } : { count: 0, oldest: 0, newest: 0 };
-  pintarEstadoCache();
-}
 function idbAbrir() {
   return new Promise((res, rej) => {
     if (!window.indexedDB) return rej(new Error("sin IndexedDB"));
@@ -890,7 +670,7 @@ let idbTimer = null;
 let guardadoPendiente = false;
 let cargaLocalTerminada = false;   // no se guarda nada hasta haber leído lo que había (evita machacarlo con un mapa vacío)
 async function volcarBajadasLocal() {
-  if (!cargaLocalTerminada || cacheDesactivada) { guardadoPendiente = false; return; }
+  if (!cargaLocalTerminada) return;
   guardadoPendiente = false;
   try {
     const db = await idbAbrir();
@@ -910,7 +690,6 @@ async function volcarBajadasLocal() {
   }
 }
 function guardarBajadasLocal() {
-  if (cacheDesactivada) return;
   guardadoPendiente = true;
   clearTimeout(idbTimer);
   idbTimer = setTimeout(volcarBajadasLocal, 300);
@@ -920,6 +699,11 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("pagehide", () => { if (guardadoPendiente) { clearTimeout(idbTimer); volcarBajadasLocal(); } });
 // Pide al navegador que no borre estos datos cuando necesite espacio
 try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+// Los perfiles guardados antes de usar el MDT05 del IGN (sin "fuente_elev") se recalculan al abrir la bajada.
+function marcarPerfilObsoleto(f) {
+  const p = f && f.properties;
+  if (p && p.perfil_cargado && !p.fuente_elev) p.perfil_cargado = false;
+}
 async function cargarBajadasLocales() {
   try {
     const db = await idbAbrir();
@@ -934,24 +718,21 @@ async function cargarBajadasLocales() {
     let n = 0;
     for (const [id, b] of Object.entries(o)) {
       if (!b || !b.f || descartadas.has(id) || ahora - b.t > IDB_TTL_MS) continue;
+      marcarPerfilObsoleto(b.f);
       porId.set(id, b.f); tramosPorId.set(id, b.tramos || []); tiempoCarga.set(id, b.t); n++;
     }
-    actualizarMetaCacheDesdeMemoria();
     return n;
   } catch (e) { console.error("No se pudieron leer las bajadas guardadas:", e); return 0; }
 }
 
 map.on("load", async () => {
   try {
-    cargarConfiguracion();
     await cargarCapas();
     try { const rd = localStorage.getItem(STORAGE_DESCARTADAS); if (rd) descartadas = new Set(JSON.parse(rd)); } catch (e) {}
     const nLocal = await cargarBajadasLocales();
     cargaLocalTerminada = true;
     cargarMiRutaGuardado(); renderMiRuta(); actualizarBotonesRuta(); actualizarUIPuntos();
     actualizarMapa();
-    if (miRuta.length) abrirModal("modalBorrador");
-    pintarEstadoCache();
     if (features.length) {
       ajustarVista();
       if (nLocal) setEstado(`${nLocal} bajada${nLocal === 1 ? "" : "s"} recuperada${nLocal === 1 ? "" : "s"} del móvil. Pulsa «Cargar esta zona» para añadir más.`);
@@ -1042,8 +823,6 @@ async function cargarZona() {
       porId.set(c.id, r.feature); tramosPorId.set(c.id, r.tramos); tiempoCarga.set(c.id, Date.now()); validas++;
     }
     actualizarMapa();
-    if (validas) cacheDesactivada = false;
-    actualizarMetaCacheDesdeMemoria();
     guardarBajadasLocal();
     setEstado(validas
       ? `${validas} bajada${validas === 1 ? "" : "s"} cargada${validas === 1 ? "" : "s"} · ${dudosas} descartada${dudosas === 1 ? "" : "s"} por sentido dudoso`
@@ -1189,6 +968,112 @@ function seleccionar(id, opts = {}) {
   }
 }
 
+// ---- Perfil de altimetría dentro de la ficha de una bajada ----
+let fichaPerfil = null;   // datos y escalas del gráfico abierto: { pts, X, Y, ML, MR, W, total }
+
+function ponerMarcadorPerfil(lat, lon) {   // la misma bola amarilla que usa el perfil de la ruta
+  if (!markerPerfil) {
+    const el = document.createElement("div");
+    el.style.cssText = "width:18px;height:18px;border-radius:50%;background:#ffd400;border:3px solid #1a1a1a;box-shadow:0 0 0 2px #fff;pointer-events:none;z-index:5";
+    markerPerfil = new maplibregl.Marker({ element: el }).setLngLat([lon, lat]).addTo(map);
+  }
+  markerPerfil.setLngLat([lon, lat]);
+  markerPerfil.getElement().style.display = "";
+}
+
+function dibujarPerfilFicha(f) {
+  fichaPerfil = null;
+  const cont = document.getElementById("fichaPerfil"), info = document.getElementById("fichaPerfilInfo");
+  if (!cont) return;
+  const ocultar = () => { cont.style.display = "none"; if (info) info.style.display = "none"; };
+  // geometría 3D de la bajada: [lon, lat, ele]. Se acumula la distancia a lo largo de la línea.
+  const c = f.geometry.coordinates, pts = [], R = 6371000, rad = Math.PI / 180;
+  let d = 0;
+  for (let i = 0; i < c.length; i++) {
+    if (i > 0) {
+      const p1 = c[i - 1][1] * rad, p2 = c[i][1] * rad, dp = p2 - p1, dl = (c[i][0] - c[i - 1][0]) * rad;
+      const hv = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+      d += 2 * R * Math.asin(Math.sqrt(hv));
+    }
+    if (c[i].length > 2 && Number.isFinite(c[i][2])) pts.push({ d, ele: c[i][2], lon: c[i][0], lat: c[i][1] });
+  }
+  const W = cont.clientWidth, H = cont.clientHeight;
+  if (pts.length < 2 || !W || !H) { ocultar(); return; }
+  const total = pts[pts.length - 1].d || 1;
+  const ML = 30, MR = 6, MT = 6, MB = 14;
+  let lo = Infinity, hi = -Infinity;
+  pts.forEach(q => { if (q.ele < lo) lo = q.ele; if (q.ele > hi) hi = q.ele; });
+  let emin = lo, emax = hi;
+  if (emax - emin < 20) { const m = (emax + emin) / 2; emin = m - 10; emax = m + 10; }
+  const pad = (emax - emin) * 0.08; emin -= pad; emax += pad;
+  const X = dd => ML + dd / total * (W - ML - MR);
+  const Y = e => MT + (1 - (e - emin) / (emax - emin)) * (H - MT - MB);
+  const color = colorDe(f.properties);
+  const fmtKm = v => v.toFixed(2).replace(/\.?0+$/, "").replace(".", ",");
+
+  let s = `<svg width="${W}" height="${H}" style="display:block">`;
+  for (const e of [lo, hi]) {   // cota mínima y máxima
+    s += `<line x1="${ML}" x2="${W - MR}" y1="${Y(e).toFixed(1)}" y2="${Y(e).toFixed(1)}" stroke="#e3e3e3"/>`
+       + `<text x="${ML - 4}" y="${(Y(e) + 3).toFixed(1)}" text-anchor="end" font-size="9" fill="#777">${Math.round(e)}</text>`;
+  }
+  const km = total / 1000; let paso = 0.1;
+  for (const cand of [0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10]) { paso = cand; if (km / cand <= 5) break; }
+  for (let k = 0; k * paso * 1000 <= total; k++) {
+    const x = X(k * paso * 1000).toFixed(1);
+    s += `<line x1="${x}" x2="${x}" y1="${MT}" y2="${H - MB}" stroke="#f0f0f0"/>`
+       + `<text x="${x}" y="${H - 3}" text-anchor="middle" font-size="9" fill="#777">${fmtKm(k * paso)}${k === 0 ? " km" : ""}</text>`;
+  }
+  const linea = pts.map(q => `${X(q.d).toFixed(1)},${Y(q.ele).toFixed(1)}`);
+  s += `<polygon points="${X(0).toFixed(1)},${H - MB} ${linea.join(" ")} ${X(total).toFixed(1)},${H - MB}" fill="${color}" fill-opacity=".15"/>`
+     + `<polyline points="${linea.join(" ")}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`
+     + `<line id="fpLinea" y1="${MT}" y2="${H - MB}" stroke="#555" stroke-dasharray="3 3" style="display:none"/>`
+     + `<circle id="fpPunto" r="4.5" fill="#fff" stroke="#1a1a1a" stroke-width="2" style="display:none"/></svg>`;
+  cont.innerHTML = s;
+  fichaPerfil = { pts, X, Y, ML, MR, W, total };
+
+  cont.addEventListener("pointerdown", (ev) => {
+    try { cont.setPointerCapture(ev.pointerId); } catch (e) {}   // sigue el dedo aunque se salga del gráfico
+    hoverFichaPerfil(ev);
+  });
+  cont.addEventListener("pointermove", hoverFichaPerfil);
+  cont.addEventListener("pointerleave", (ev) => { if (ev.pointerType === "mouse") salirFichaPerfil(); });
+}
+
+function hoverFichaPerfil(ev) {
+  const g = fichaPerfil; if (!g) return;
+  const cont = document.getElementById("fichaPerfil"); if (!cont) return;
+  const r = cont.getBoundingClientRect(), pts = g.pts;
+  let d = (ev.clientX - r.left - g.ML) / (g.W - g.ML - g.MR) * g.total;
+  d = Math.max(0, Math.min(g.total, d));
+  let a = 0, b = pts.length - 1;
+  while (b - a > 1) { const m = (a + b) >> 1; if (pts[m].d < d) a = m; else b = m; }
+  const i = (d - pts[a].d < pts[b].d - d) ? a : b, q = pts[i];
+  let i0 = i, i1 = i;   // pendiente local: ±30 m alrededor del punto
+  while (i0 > 0 && q.d - pts[i0].d < 30) i0--;
+  while (i1 < pts.length - 1 && pts[i1].d - q.d < 30) i1++;
+  const dd = pts[i1].d - pts[i0].d;
+  const pend = dd > 5 ? (pts[i1].ele - pts[i0].ele) / dd * 100 : null;
+  const linea = document.getElementById("fpLinea"), punto = document.getElementById("fpPunto");
+  if (linea && punto) {
+    const x = g.X(q.d).toFixed(1);
+    linea.setAttribute("x1", x); linea.setAttribute("x2", x); linea.style.display = "";
+    punto.setAttribute("cx", x); punto.setAttribute("cy", g.Y(q.ele).toFixed(1)); punto.style.display = "";
+  }
+  const info = document.getElementById("fichaPerfilInfo");
+  if (info) info.textContent = `km ${(q.d / 1000).toFixed(2).replace(".", ",")} · ${Math.round(q.ele)} m`
+    + (pend !== null ? ` · ${pend > 0 ? "+" : pend < 0 ? "−" : ""}${Math.abs(pend).toFixed(0)} %` : "");
+  ponerMarcadorPerfil(q.lat, q.lon);
+}
+
+function salirFichaPerfil() {
+  const linea = document.getElementById("fpLinea"), punto = document.getElementById("fpPunto");
+  if (linea) linea.style.display = "none";
+  if (punto) punto.style.display = "none";
+  const info = document.getElementById("fichaPerfilInfo");
+  if (info) info.textContent = "Desliza sobre el perfil para ver cota y pendiente";
+  if (markerPerfil) markerPerfil.getElement().style.display = "none";
+}
+
 function mostrarPopup(f, lngLat, aviso) {
   const p = f.properties; const color = colorDe(p);
   let dif = p.dificultad_color ? `<span style="color:${color};font-weight:600">${esc(p.dificultad_color)}</span>` : `<span style="color:#95a5a6">sin dificultad en OSM</span>`;
@@ -1212,6 +1097,7 @@ function mostrarPopup(f, lngLat, aviso) {
       <button class="cerrar" title="Cerrar">×</button>
       <h3>${esc(p.nombre || "(sin nombre)")} ${badgeFiab(p)}</h3>
       <div class="ficha-resumen">${resumen}</div>
+      ${cargado ? `<div id="fichaPerfil" title="Pasa el cursor o desliza el dedo para ver cota y pendiente"></div><div id="fichaPerfilInfo">Desliza sobre el perfil para ver cota y pendiente</div>` : ""}
       <table>
         ${fila("Dificultad", dif)}
         ${fila("Longitud", fmtLong(p.longitud_m))}
@@ -1227,12 +1113,14 @@ function mostrarPopup(f, lngLat, aviso) {
       </button>`;
   ficha.style.display = "block";
   ficha.scrollTop = 0;
+  if (cargado) dibujarPerfilFicha(f);
   ficha.querySelector(".cerrar").addEventListener("click", deseleccionar);
   document.getElementById("popupAdd").addEventListener("click", (ev) => { ev.stopPropagation(); toggleRuta(id); });
 }
 
 function deseleccionar() {
   seleccionada = null;
+  salirFichaPerfil();
   document.getElementById("ficha").style.display = "none";
   if (map.getLayer("tramos-sel")) map.setFilter("tramos-sel", ["==", ["get", "bajada_id"], ""]);
   const src = map.getSource("sel-flechas");
@@ -1587,7 +1475,7 @@ document.getElementById("btnBorrarTodo").addEventListener("click", () => {
   miRuta.length = 0; puntoInicio = null; puntoFin = null;
   guardarMiRuta(); guardarPuntos(); invalidarRuta();
   document.getElementById("volverInicio").checked = true;
-  guardarConfiguracion(); sincronizarConfigDesdeControles();
+  document.getElementById("perfil").value = "trekking";
   deseleccionar();
   renderMiRuta(); actualizarBotonesRuta(); actualizarPopupBoton(); actualizarUIPuntos();
   document.getElementById("estadoRuta").textContent = "";
