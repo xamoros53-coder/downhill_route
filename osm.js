@@ -16,7 +16,13 @@
     "https://overpass.kumi.systems/api/interpreter",
     "https://overpass.private.coffee/api/interpreter"
   ];
-  const MAX_AREA_KM2 = 300;      // tamaño máximo de la zona a descargar
+  // Modo amplio (opcional, apagado por defecto): además de lo etiquetado con mtb:*, descarga relaciones
+  // route=mtb y los highway=path abiertos a la bici que NO llevan etiquetas MTB. Apagado = comportamiento original.
+  let modoAmplio = false;
+  const setModoAmplio = v => { modoAmplio = !!v; };
+  const claveCache = () => modoAmplio ? "zonas_amplio_v1" : "zonas";   // cachés separadas: no se mezclan
+  const MAX_AREA_KM2 = 300;      // tamaño máximo de la zona a descargar (en modo amplio: 120)
+  const MAX_AREA_AMPLIO_KM2 = 120;
   const MIN_LENGTH_M = 150;      // bajadas más cortas se ignoran
   // Una bajada solo se muestra si el sentido es fiable. Con el DEM de 90 m de Open-Meteo,
   // las diferencias pequeñas son ruido: se exige caída y pendiente mínimas entre extremos.
@@ -113,16 +119,16 @@
   // Zonas recientes en caché: si la zona pedida cabe dentro de una ya descargada, no se vuelve a pedir nada.
   const contiene = (g, p) => g[0] <= p[0] && g[1] <= p[1] && g[2] >= p[2] && g[3] >= p[3];
   async function buscarCache(bb) {
-    const lista = (await cacheGet("zonas")) || [];
+    const lista = (await cacheGet(claveCache())) || [];
     const ahora = Date.now();
     return lista.find(z => ahora - z.t < CACHE_TTL_MS && contiene(z.bbox, bb)) || null;
   }
   async function guardarCache(bb, data) {
     const ahora = Date.now();
-    let lista = (await cacheGet("zonas")) || [];
+    let lista = (await cacheGet(claveCache())) || [];
     lista = lista.filter(z => ahora - z.t < CACHE_TTL_MS && !contiene(bb, z.bbox));   // las que quedan dentro de la nueva sobran
     lista.unshift({ bbox: bb, t: ahora, data });
-    await cacheSet("zonas", lista.slice(0, MAX_ZONAS_CACHE));
+    await cacheSet(claveCache(), lista.slice(0, MAX_ZONAS_CACHE));
   }
   // Se queda con los tramos que tocan la zona pedida (la zona en caché puede ser mayor)
   function recortarData(data, bb) {
@@ -226,6 +232,7 @@
     for (const n of [w.tags.name, w.tags["mtb:name"]]) if (n && n.trim()) s.add(n.trim().toLowerCase());
     return s;
   }
+  const tieneMtb = w => !!(w.tags["mtb:scale"] || w.tags["mtb:scale:imba"] || (w.tags["mtb:name"] && w.tags["mtb:name"].trim()));
   const claveDif = w => w.tags["mtb:scale:imba"] || w.tags["mtb:scale"] || null;
 
   function compatibles(a, b) {
@@ -236,14 +243,20 @@
 
   // Une tramos conectados por extremos en cadenas ordenadas: [{ways, pts, segs:[[way, pts]...]}]
   function construirCadenas(ways) {
+    // Solo para grupos de senderos sin nombre y sin NINGUNA etiqueta MTB (los añadidos por el modo amplio):
+    // no se encadena a través de un cruce, para no convertir una red entera en una sola "bajada".
+    // Los grupos con etiquetas MTB o nombre se encadenan igual que siempre.
+    const cortarEnCruces = ways.every(w => nombresDe(w).size === 0 && !tieneMtb(w));
     const unused = new Map(ways.map(w => [w.id, w]));
     const porNodo = new Map();
     const anota = (n, id) => { if (!porNodo.has(n)) porNodo.set(n, new Set()); porNodo.get(n).add(id); };
     for (const w of ways) { anota(w.nodes[0], w.id); anota(w.nodes[w.nodes.length - 1], w.id); }
     const libres = n => { let c = 0; for (const id of porNodo.get(n)) if (unused.has(id)) c++; return c; };
+    const esCruce = n => cortarEnCruces && porNodo.get(n).size > 2;
     const extremoLibre = w => {
-      if (libres(w.nodes[0]) === 1) return "start";
-      if (libres(w.nodes[w.nodes.length - 1]) === 1) return "end";
+      const a = w.nodes[0], z = w.nodes[w.nodes.length - 1];
+      if (libres(a) === 1 || esCruce(a)) return "start";
+      if (libres(z) === 1 || esCruce(z)) return "end";
       return null;
     };
     const orden = [...ways].sort((x, y) => x.id - y.id);
@@ -265,6 +278,7 @@
 
       while (true) {
         const fin = nodes[nodes.length - 1];
+        if (esCruce(fin)) break;
         let nxt = null;
         for (const id of porNodo.get(fin) || []) {
           if (unused.has(id) && (!nxt || id < nxt.id)) nxt = unused.get(id);
@@ -343,10 +357,19 @@
       data = guardado.bbox.every((v, i) => v === bb[i]) ? guardado.data : recortarData(guardado.data, bb);
     } else {
       const b = `${s},${w},${n},${e}`;
-      const query = `[out:json][timeout:60];(`
-        + `way["highway"~"^(path|track)$"]["mtb:scale"](${b});`
-        + `way["highway"~"^(path|track)$"]["mtb:name"](${b});`
-        + `);out body geom qt;`;
+      const HW = `["highway"~"^(path|track)$"]`;
+      const NOBICI = `["bicycle"!~"^(no|dismount)$"]["access"!~"^(no|private)$"]`;
+      let q = `way${HW}["mtb:scale"](${b});`
+        + `way${HW}["mtb:scale:imba"](${b});`
+        + `way${HW}["mtb:name"](${b});`;
+      if (modoAmplio) {
+        q += `way(r.rutas)${HW};`                                                      // tramos de rutas MTB marcadas
+          + `way["highway"="path"]${NOBICI}["foot"!="designated"](${b});`              // senderos abiertos a la bici (sin sendas solo peatonales)
+          + `way["highway"="path"]["foot"="designated"]["bicycle"~"^(yes|designated|permissive)$"](${b});`  // peatonales que admiten bici
+          + `way["highway"="track"]["tracktype"~"^grade[45]$"]${NOBICI}(${b});`;       // pistas rudas (grade3 ya la filtraba esPistaDeCoche)
+      }
+      const pre = modoAmplio ? `rel["route"="mtb"](${b})->.rutas;` : "";
+      const query = `[out:json][timeout:60];${pre}(${q});out body geom qt;`;
       data = await consultarOverpass(query, estado);
       guardarCache(bb, data);   // sin await: no hace falta esperar para seguir
     }
@@ -488,6 +511,7 @@
     const anchos = tagsList.map(t => parseNum(t.width)).filter(v => v !== null);
     const id = c.id;
     const fiabilidad = (mtbName || name) && dif.color ? "osm" : "detectada";
+    const inferida = !c.ways.some(tieneMtb);   // ningún tramo lleva etiquetas MTB: solo es un sendero abierto a la bici
     const coords = pts.map(([la, lo]) => [r6(lo), r6(la)]);
 
     const props = {
@@ -515,9 +539,11 @@
       ancho_m: masComun(anchos),
       incline_osm: masComun(tagsList.map(t => t.incline)),
       fiabilidad,
+      origen: inferida ? "inferida" : "mtb",
       perfil_cargado: false,     // true cuando se ha pedido el perfil completo (Elev.cargarPerfil)
       _cat: dif.color || "sin",
       _osm: fiabilidad === "osm",
+      _inferida: inferida,
       inicio: coords[0],
       fin: coords[coords.length - 1]
     };
@@ -557,6 +583,7 @@
 
   window.OSM = {
     descargarZona, evaluar, areaKm2,
-    MAX_AREA_KM2, MIN_LENGTH_M, MIN_CAIDA_M, MIN_PEND_PCT
+    get MAX_AREA_KM2() { return modoAmplio ? MAX_AREA_AMPLIO_KM2 : MAX_AREA_KM2; },
+    setModoAmplio, MIN_LENGTH_M, MIN_CAIDA_M, MIN_PEND_PCT
   };
 })();
