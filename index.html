@@ -228,6 +228,12 @@
   @media (max-width: 720px) {
     #btnZona { top: 10px; left: 62px; height: 44px; padding: 0 14px; }
   }
+
+  /* ===== Búsqueda mixta, selector de mapa, salto en ruta ===== */
+  .res-grupo { font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:#6b7280; padding:8px 9px 2px; }
+  .resultado-busqueda small { display:block; color:#777; font-size:12px; margin-top:1px; }
+  .resultado-busqueda.btn-lugar { color:#1f6fd1; font-weight:600; }
+  .ctrl-base { font-size:16px; line-height:1; }
 </style>
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="64x64" href="./icons/favicon-64.png">
@@ -241,9 +247,9 @@
   <div id="mapwrap">
     <div id="map"></div>
     <div id="busquedaWrap">
-      <button id="btnBuscarToggle" aria-label="Buscar bajada" title="Buscar bajada">⌕</button>
+      <button id="btnBuscarToggle" aria-label="Buscar bajada o lugar" title="Buscar bajada o lugar">⌕</button>
       <div id="busquedaPanel">
-        <input id="busquedaInput" type="search" placeholder="Buscar bajada por nombre…" autocomplete="off" />
+        <input id="busquedaInput" type="search" placeholder="Buscar bajada o lugar…" autocomplete="off" />
         <div id="busquedaResultados" aria-live="polite"></div>
       </div>
     </div>
@@ -308,12 +314,21 @@
 const COLORES = { verde: "#2e9e4f", azul: "#1f6fd1", rojo: "#d62f2f", negro: "#1a1a1a", sin: "#9e9e9e" };
 const CATS = ["verde", "azul", "rojo", "negro", "sin"];
 
+let baseSat = false;   // false = mapa OSM, true = satélite (se recuerda la última elección)
+try { baseSat = localStorage.getItem("baseMapa") === "sat"; } catch (e) {}
+
 const map = new maplibregl.Map({
   container: "map",
   style: {
     version: 8,
-    sources: { osm: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, attribution: "© OpenStreetMap contributors" } },
-    layers: [{ id: "osm", type: "raster", source: "osm" }]
+    sources: {
+      osm: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, attribution: "© OpenStreetMap contributors" },
+      sat: { type: "raster", tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"], tileSize: 256, maxzoom: 19, attribution: "Imágenes © Esri, Maxar, Earthstar Geographics y la comunidad GIS" }
+    },
+    layers: [
+      { id: "osm", type: "raster", source: "osm", layout: { visibility: baseSat ? "none" : "visible" } },
+      { id: "sat", type: "raster", source: "sat", layout: { visibility: baseSat ? "visible" : "none" } }
+    ]
   },
   center: [2.33, 41.52],
   zoom: 12,
@@ -321,10 +336,41 @@ const map = new maplibregl.Map({
 });
 
 map.addControl(new maplibregl.NavigationControl(), "top-right");
-map.addControl(new maplibregl.GeolocateControl({
+const geolocate = new maplibregl.GeolocateControl({
   positionOptions: { enableHighAccuracy: true },
   trackUserLocation: true, showUserLocation: true, showAccuracyCircle: true
-}), "top-right");   // botón ◎ + punto azul con tu ubicación
+});
+map.addControl(geolocate, "top-right");   // botón ◎ + punto azul con tu ubicación
+
+// Botón para alternar entre el mapa normal y la vista satélite
+class BaseMapaControl {
+  onAdd() {
+    this._c = document.createElement("div");
+    this._c.className = "maplibregl-ctrl maplibregl-ctrl-group";
+    this._b = document.createElement("button");
+    this._b.type = "button"; this._b.className = "ctrl-base";
+    this._b.addEventListener("click", () => ponerBase(!baseSat));
+    this._c.appendChild(this._b);
+    this.refrescar();
+    return this._c;
+  }
+  onRemove() { this._c.remove(); }
+  refrescar() {
+    const t = baseSat ? "Ver mapa normal" : "Ver satélite";
+    this._b.textContent = baseSat ? "🗺" : "🛰";
+    this._b.title = t; this._b.setAttribute("aria-label", t);
+  }
+}
+const baseControl = new BaseMapaControl();
+function ponerBase(sat) {
+  if (!map.getLayer("sat")) return;
+  baseSat = sat;
+  map.setLayoutProperty("osm", "visibility", sat ? "none" : "visible");
+  map.setLayoutProperty("sat", "visibility", sat ? "visible" : "none");
+  baseControl.refrescar();
+  try { localStorage.setItem("baseMapa", sat ? "sat" : "osm"); } catch (e) {}
+}
+map.addControl(baseControl, "top-right");
 map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-right");
 
 let features = [];                 // bajadas cargadas (se rehace en actualizarMapa)
@@ -570,7 +616,12 @@ function actualizarPopupBoton() {
   btn.textContent = dentro ? "✓ Quitar de mi ruta" : "＋ Añadir a mi ruta";
 }
 function actualizarUIPuntos() { actualizarBotonGenerar(); }
-function actualizarBotonGenerar() { document.getElementById("btnGenerar").disabled = !miRuta.some(id => !esPunto(id)); }
+// Se puede generar con al menos una bajada, o solo con puntos si hay dos o más
+function puedeGenerar() {
+  const nPun = miRuta.filter(esPunto).length;
+  return nPun >= 2 || miRuta.length - nPun >= 1;
+}
+function actualizarBotonGenerar() { document.getElementById("btnGenerar").disabled = !puedeGenerar(); }
 document.getElementById("volverInicio").addEventListener("change", () => { invalidarRuta(); actualizarUIPuntos(); });
 document.getElementById("perfil").addEventListener("change", (ev) => {
   const sel = ev.target;
@@ -737,6 +788,7 @@ map.on("load", async () => {
       ajustarVista();
       if (nLocal) setEstado(`${nLocal} bajada${nLocal === 1 ? "" : "s"} recuperada${nLocal === 1 ? "" : "s"} del móvil. Pulsa «Cargar esta zona» para añadir más.`);
     } else setEstado("Acerca el mapa a tu zona y pulsa «Cargar esta zona».");
+    try { geolocate.trigger(); } catch (e) {}   // al abrir, centra el mapa en tu posición (si das permiso)
   } catch (e) {
     cargaLocalTerminada = true;
     setEstado("Error al iniciar el mapa: " + e.message);
@@ -1130,6 +1182,12 @@ function deseleccionar() {
 
 function ajustarVista() {
   const b = new maplibregl.LngLatBounds();
+  const ptsInter = miRuta.filter(esPunto).map(id => puntosInter.get(id)).filter(Boolean);
+  if (ptsInter.length && !miRuta.some(id => !esPunto(id))) {   // ruta solo con puntos: se encuadran ellos
+    ptsInter.forEach(pt => b.extend([pt[1], pt[0]]));
+    map.fitBounds(b, { padding: 80, duration: 0, maxZoom: 15 });
+    return;
+  }
   // Con la caché local puede haber bajadas de varias zonas: se encuadra la ruta o, si no hay, la última zona cargada
   let lista = miRuta.filter(id => !esPunto(id)).map(id => porId.get(id)).filter(Boolean);
   if (!lista.length) {
@@ -1151,32 +1209,80 @@ let textoBusqueda = "";
 btnBuscarToggle.addEventListener("click", () => {
   const abrir = !busquedaPanel.classList.contains("abierto");
   busquedaPanel.classList.toggle("abierto", abrir);
-  btnBuscarToggle.setAttribute("aria-label", abrir ? "Cerrar búsqueda" : "Buscar bajada");
+  btnBuscarToggle.setAttribute("aria-label", abrir ? "Cerrar búsqueda" : "Buscar bajada o lugar");
   if (abrir) setTimeout(() => busquedaInput.focus(), 30);
   else { busquedaInput.value = ""; textoBusqueda = ""; actualizarBusqueda(); }
 });
+const norm = t => String(t ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");   // sin tildes ni mayúsculas
+let seqLugares = 0, marcadorLugar = null;
+function cerrarBusqueda() { busquedaPanel.classList.remove("abierto"); busquedaInput.blur(); }
 function actualizarBusqueda() {
-  textoBusqueda = busquedaInput.value.trim().toLocaleLowerCase("es");
-  const coincidencias = features.filter(f => !textoBusqueda || String(f.properties.nombre || "").toLocaleLowerCase("es").includes(textoBusqueda));
-  // La búsqueda no oculta el resto de las bajadas: solo muestra resultados aquí.
+  seqLugares++;                                   // invalida una búsqueda de lugares que estuviera en curso
+  const texto = busquedaInput.value.trim();
+  textoBusqueda = norm(texto);
   busquedaResultados.innerHTML = "";
   if (!textoBusqueda) return;
-  if (!coincidencias.length) {
-    busquedaResultados.innerHTML = '<div class="resultado-vacio">No se han encontrado bajadas con ese nombre.</div>';
-    return;
-  }
-  coincidencias.slice(0, 8).forEach(f => {
-    const b = document.createElement("button"); b.type = "button"; b.className = "resultado-busqueda";
-    b.textContent = f.properties.nombre || "Bajada sin nombre";
-    b.addEventListener("click", () => {
-      const id = idDe(f); seleccionar(id, { fit: true });
-      busquedaPanel.classList.remove("abierto");
-      busquedaInput.blur();
+  const coincidencias = features.filter(f => norm(f.properties.nombre).includes(textoBusqueda));
+  // La búsqueda no oculta el resto de las bajadas: solo muestra resultados aquí.
+  if (coincidencias.length) {
+    const h = document.createElement("div"); h.className = "res-grupo"; h.textContent = "Bajadas"; busquedaResultados.appendChild(h);
+    coincidencias.slice(0, 8).forEach(f => {
+      const b = document.createElement("button"); b.type = "button"; b.className = "resultado-busqueda";
+      b.textContent = f.properties.nombre || "Bajada sin nombre";
+      b.addEventListener("click", () => { seleccionar(idDe(f), { fit: true }); cerrarBusqueda(); });
+      busquedaResultados.appendChild(b);
     });
-    busquedaResultados.appendChild(b);
-  });
+  }
+  // Los lugares se buscan al pulsar Intro o este botón (Nominatim no admite autocompletado)
+  const zona = document.createElement("div");
+  const bl = document.createElement("button"); bl.type = "button"; bl.className = "resultado-busqueda btn-lugar";
+  bl.textContent = `🔎 Buscar «${texto}» como lugar`;
+  bl.addEventListener("click", () => buscarLugares(texto, zona));
+  zona.appendChild(bl);
+  busquedaResultados.appendChild(zona);
+  if (!coincidencias.length) {
+    const v = document.createElement("div"); v.className = "resultado-vacio"; v.textContent = "Ninguna bajada con ese nombre."; busquedaResultados.insertBefore(v, zona);
+  }
+}
+async function buscarLugares(texto, zona) {
+  const mi = ++seqLugares;
+  zona.innerHTML = '<div class="resultado-vacio">Buscando lugares…</div>';
+  const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), 7000);
+  try {
+    const bb = map.getBounds();   // sesga los resultados hacia lo que se ve en el mapa
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=es&q=${encodeURIComponent(texto)}`
+      + `&viewbox=${bb.getWest()},${bb.getNorth()},${bb.getEast()},${bb.getSouth()}`;
+    const r = await fetch(url, { signal: ctrl.signal });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const lista = await r.json();
+    if (mi !== seqLugares) return;
+    zona.innerHTML = "";
+    const h = document.createElement("div"); h.className = "res-grupo"; h.textContent = "Lugares"; zona.appendChild(h);
+    if (!lista.length) { zona.insertAdjacentHTML("beforeend", '<div class="resultado-vacio">No se ha encontrado ningún lugar.</div>'); return; }
+    lista.forEach(p => {
+      const partes = String(p.display_name || "").split(",").map(x => x.trim());
+      const b = document.createElement("button"); b.type = "button"; b.className = "resultado-busqueda";
+      b.innerHTML = `${esc(partes[0] || "Lugar")}<small>${esc(partes.slice(1, 4).join(", "))}</small>`;
+      b.addEventListener("click", () => {
+        cerrarBusqueda();
+        if (p.boundingbox) { const [s, n, w, e] = p.boundingbox.map(Number); map.fitBounds([[w, s], [e, n]], { padding: 40, maxZoom: 15, duration: 600 }); }
+        else map.flyTo({ center: [+p.lon, +p.lat], zoom: 14 });
+        if (marcadorLugar) marcadorLugar.remove();
+        const mk = marcadorLugar = new maplibregl.Marker({ color: "#d62f2f" }).setLngLat([+p.lon, +p.lat]).addTo(map);
+        setTimeout(() => { mk.remove(); if (marcadorLugar === mk) marcadorLugar = null; }, 20000);
+      });
+      zona.appendChild(b);
+    });
+  } catch (e) {
+    if (mi === seqLugares) zona.innerHTML = '<div class="resultado-vacio">No se pudo buscar el lugar. Revisa la conexión.</div>';
+  } finally { clearTimeout(t); }
 }
 busquedaInput.addEventListener("input", actualizarBusqueda);
+busquedaInput.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  const bl = busquedaResultados.querySelector(".btn-lugar"); if (bl) bl.click();
+});
 
 // ---- Ruta generada: dibujar, invalidar, descargar, borrar todo ----
 function crearFlecha() {
@@ -1229,8 +1335,8 @@ function mostrarResumenRuta(st) {
   const km = m => fmtLong(Math.round(m));
   let t = `<strong>${km(st.distM)}</strong>`;
   if (st.sube !== null) t += ` · ↑${st.sube} m ↓${st.baja} m`;
-  t += `<br>Bajadas ${km(st.distBajadasM)} (contorno morado) · <span class="sw" style="background:${COLOR_RUTA};margin-left:0"></span>enlaces ${km(st.distEnlacesM)}`
-     + `<br>Las flechas ➤ marcan el sentido.`;
+  if (st.distBajadasM > 0) t += `<br>Bajadas ${km(st.distBajadasM)} (contorno morado) · <span class="sw" style="background:${COLOR_RUTA};margin-left:0"></span>enlaces ${km(st.distEnlacesM)}`;
+  t += `<br>Las flechas ➤ marcan el sentido.`;
   document.getElementById("resumenRuta").innerHTML = t;
 }
 
@@ -1400,6 +1506,64 @@ document.getElementById("perfilCerrar").addEventListener("click", () => {
 });
 window.addEventListener("resize", () => { if (perfilDatos && document.getElementById("mapwrap").classList.contains("conPerfil")) dibujarPerfil(); });
 
+// ---- Detección de saltos: huecos entre tramos o líneas rectas sin camino ----
+const MAX_SALTO_M = 100;   // hueco máximo entre el final de un tramo y el inicio del siguiente (BRouter ya ajusta a su red)
+const MAX_PASO_M = 1500;   // distancia máxima entre dos puntos seguidos de un mismo tramo
+const MAX_RECTA_ENLACE_M = 80;   // un enlace de solo 1-2 puntos más largo que esto es una recta, no un camino
+function buscarSaltos(segs) {
+  const res = [];
+  const nombreCerca = (i, dir) => {
+    for (let j = i; j >= 0 && j < segs.length; j += dir) if (segs[j].tipo === "bajada" && segs[j].nombre) return `«${segs[j].nombre}»`;
+    return dir < 0 ? "el tramo anterior" : "el tramo siguiente";
+  };
+  const alta = (d, p, q, iDesde, iHasta) => res.push({ d, lat: p[0], lon: p[1], lat2: q[0], lon2: q[1], desde: nombreCerca(iDesde, -1), hasta: nombreCerca(iHasta, 1) });
+  let prev = null, prevIdx = -1;
+  segs.forEach((sg, i) => {
+    const p = sg.puntos;
+    if (!p || !p.length) return;
+    if (prev) { const d = haversine([prev[0], prev[1]], [p[0][0], p[0][1]]); if (d > MAX_SALTO_M) alta(d, prev, p[0], prevIdx, i); }
+    for (let k = 1; k < p.length; k++) {
+      const d = haversine([p[k - 1][0], p[k - 1][1]], [p[k][0], p[k][1]]);
+      if (d > MAX_PASO_M) alta(d, p[k - 1], p[k], i, i);
+    }
+    if (sg.tipo === "enlace" && p.length <= 2) {
+      const d = haversine([p[0][0], p[0][1]], [p[p.length - 1][0], p[p.length - 1][1]]);
+      if (d > MAX_RECTA_ENLACE_M) alta(d, p[0], p[p.length - 1], i, i);
+    }
+    prev = p[p.length - 1]; prevIdx = i;
+  });
+  return res;
+}
+function avisarSaltos(saltos) {
+  const m = saltos.reduce((a, x) => x.d > a.d ? x : a, saltos[0]);
+  mostrarSaltos(saltos);
+  const dist = fmtLong(Math.round(m.d)), de = m.desde || "el tramo anterior", a = m.hasta || "el tramo siguiente";
+  const que = m.motivo === "sin-ruta"
+    ? `BRouter no encuentra camino entre ${de} y ${a} (${dist} en línea recta)`
+    : `hay un salto de ${dist} sin camino entre ${de} y ${a}`;
+  document.getElementById("estadoRuta").textContent = `⚠ Ruta no generada: ${que}`
+    + (saltos.length > 1 ? ` (y ${saltos.length - 1} más)` : "")
+    + ". Está marcado en rojo en el mapa. Prueba otro modo de enrutamiento, cambia el orden o añade un punto intermedio.";
+}
+function mostrarSaltos(saltos) {
+  const feats = [];
+  saltos.forEach(sj => {
+    feats.push({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [[sj.lon, sj.lat], [sj.lon2, sj.lat2]] } });
+    feats.push({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [sj.lon, sj.lat] } });
+    feats.push({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [sj.lon2, sj.lat2] } });
+  });
+  const data = { type: "FeatureCollection", features: feats };
+  if (map.getSource("ruta-salto")) map.getSource("ruta-salto").setData(data);
+  else {
+    map.addSource("ruta-salto", { type: "geojson", data });
+    map.addLayer({ id: "ruta-salto-linea", type: "line", source: "ruta-salto", filter: ["==", ["geometry-type"], "LineString"], paint: { "line-color": "#d62f2f", "line-width": 4, "line-dasharray": [2, 1.5] } });
+    map.addLayer({ id: "ruta-salto-pt", type: "circle", source: "ruta-salto", filter: ["==", ["geometry-type"], "Point"], paint: { "circle-radius": 7, "circle-color": "#d62f2f", "circle-stroke-color": "#fff", "circle-stroke-width": 2 } });
+  }
+  const bnd = new maplibregl.LngLatBounds();
+  saltos.forEach(sj => { bnd.extend([sj.lon, sj.lat]); bnd.extend([sj.lon2, sj.lat2]); });
+  if (!bnd.isEmpty()) map.fitBounds(bnd, { padding: 90, maxZoom: 16, duration: 600 });
+}
+
 // Quita la ruta calculada (porque algo ha cambiado o se empieza de cero)
 function invalidarRuta() {
   versionRuta++;
@@ -1407,6 +1571,8 @@ function invalidarRuta() {
   rutaGenerada = null;
   const src = map.getSource("ruta-generada");
   if (src) src.setData({ type: "FeatureCollection", features: [] });
+  const srcSalto = map.getSource("ruta-salto");
+  if (srcSalto) srcSalto.setData({ type: "FeatureCollection", features: [] });
   document.getElementById("resumenRuta").innerHTML = "";
   document.getElementById("btnDescargarGPX").disabled = true;
   document.getElementById("btnGenerar").textContent = "Generar ruta";
@@ -1416,7 +1582,7 @@ function invalidarRuta() {
 
 document.getElementById("btnGenerar").addEventListener("click", async () => {
   if (rutaGenerada) { descargarRuta(); return; }
-  if (!miRuta.some(id => !esPunto(id))) return;
+  if (!puedeGenerar()) return;
   let nPunto = 0;
   const seleccion = miRuta.map(id => {
     if (esPunto(id)) { const pt = puntosInter.get(id); return pt ? { punto: true, lat: pt[0], lon: pt[1], nombre: (pt[2] || `Punto ${++nPunto}`) } : null; }
@@ -1441,6 +1607,8 @@ document.getElementById("btnGenerar").addEventListener("click", async () => {
     const todasLasBajadas = [...porId.values()];   // todas las bajadas cargadas: BRouter evita subir por ellas
     const r = await window.generarRutaGPX(seleccion, null, fin, perfil, (msg) => { if (version === versionRuta) estado.textContent = msg; }, todasLasBajadas);
     if (version !== versionRuta) { estado.textContent = "La selección cambió mientras se calculaba. Vuelve a generar."; return; }
+    const saltos = buscarSaltos(r.segmentos);
+    if (saltos.length) { avisarSaltos(saltos); return; }   // red de seguridad: no se da por buena una ruta con huecos o rectas
     rutaGenerada = r;
     let bi = 0;
     r.segmentos.forEach(sg => { sg.color = sg.tipo === "bajada" ? colorDe(soloBajadas[bi++].properties) : COLOR_RUTA; });
@@ -1453,8 +1621,12 @@ document.getElementById("btnGenerar").addEventListener("click", async () => {
     estado.textContent = "Ruta lista. Revísala en el mapa y descarga el GPX."
       + (sinEvitar ? ` ⚠ ${sinEvitar} enlace${sinEvitar === 1 ? "" : "s"} no ha${sinEvitar === 1 ? "" : "n"} podido evitar subir por alguna bajada.` : "");
   } catch (e) {
-    estado.textContent = "Error: " + e.message;
-    console.error(e);
+    if (e && e.saltos && e.saltos.length) {   // ruta.js no ha podido unir algún tramo
+      if (version === versionRuta) avisarSaltos(e.saltos);
+    } else {
+      estado.textContent = "Error: " + e.message;
+      console.error(e);
+    }
   } finally {
     actualizarBotonGenerar();
   }

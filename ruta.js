@@ -38,7 +38,13 @@ async function llamarBRouter(lon1, lat1, lon2, lat2, perfil, nogoList = []) {
   }
 
   const r = await fetch(url);
-  if (!r.ok) throw new Error(`BRouter respondió ${r.status}`);
+  if (!r.ok) {
+    let det = "";
+    try { det = (await r.text()).trim().slice(0, 120); } catch (e) {}
+    const err = new Error(`BRouter respondió ${r.status}` + (det ? ` (${det})` : ""));
+    err.status = r.status;   // 400 = BRouter no encuentra camino entre los dos puntos
+    throw err;
+  }
   return await r.text();
 }
 
@@ -176,15 +182,18 @@ async function generarRutaGPX(seleccion, puntoInicio, puntoFin, perfil, onEstado
   // "seleccion" es la lista ordenada de la ruta: bajadas (features GeoJSON)
   // y puntos intermedios ({ punto: true, lat, lon, nombre }).
   const bajadas = seleccion.filter(x => !x.punto);
-  if (bajadas.length === 0) throw new Error("No hay bajadas seleccionadas");
+  const nPuntos = seleccion.length - bajadas.length;
+  // Se puede generar con bajadas, o solo con puntos si hay al menos dos
+  if (bajadas.length === 0 && nPuntos < 2) throw new Error("Hacen falta al menos una bajada o dos puntos");
 
   const estado = onEstado || (() => {});
   const segmentos = [];
   const waypoints = [];
+  const problemas = [];      // uniones imposibles o con salto: si hay alguna, no se genera la ruta
 
   let ultimaBajada = null;   // bajada recién hecha: el siguiente enlace no puede volver por ella
 
-  async function enlace(desde, hasta, etiqueta) {
+  async function enlace(desde, hasta, etiqueta, nomDesde, nomHasta) {
     const previa = ultimaBajada; ultimaBajada = null;
     const d = haversine(desde, hasta);
     if (d < MIN_ENLACE_M) return;
@@ -210,51 +219,67 @@ async function generarRutaGPX(seleccion, puntoInicio, puntoFin, perfil, onEstado
       }
     } catch (e) {
       console.warn(`Error en ${etiqueta}:`, e);
+      if (e && e.status === 400) {   // BRouter responde que no hay camino entre los dos puntos
+        problemas.push({ motivo: "sin-ruta", d, lat: desde[0], lon: desde[1], lat2: hasta[0], lon2: hasta[1], desde: nomDesde, hasta: nomHasta });
+        return;
+      }
       throw new Error(`No se pudo calcular el ${etiqueta}: ` + e.message);
     }
 
-    if (pts.length === 0) throw new Error(`BRouter no devolvió ninguna ruta para el ${etiqueta}`);
-    const d0 = haversine(desde, [pts[0][0], pts[0][1]]);
-    const d1 = haversine(hasta, [pts[pts.length - 1][0], pts[pts.length - 1][1]]);
-    if (d0 > MAX_SALTO_AVISO_M || d1 > MAX_SALTO_AVISO_M) {
-      console.warn(`Salto en ${etiqueta}: ${d0.toFixed(0)} m / ${d1.toFixed(0)} m`);
+    if (pts.length === 0) {
+      problemas.push({ motivo: "sin-ruta", d, lat: desde[0], lon: desde[1], lat2: hasta[0], lon2: hasta[1], desde: nomDesde, hasta: nomHasta });
+      return;
     }
+    // BRouter engancha el origen/destino a su red: si queda lejos, habría una línea recta entre medias
+    const ini = pts[0], fin = pts[pts.length - 1];
+    const d0 = haversine(desde, [ini[0], ini[1]]);
+    const d1 = haversine(hasta, [fin[0], fin[1]]);
+    if (d0 > MAX_SALTO_AVISO_M) problemas.push({ motivo: "salto", d: d0, lat: desde[0], lon: desde[1], lat2: ini[0], lon2: ini[1], desde: nomDesde, hasta: nomHasta });
+    if (d1 > MAX_SALTO_AVISO_M) problemas.push({ motivo: "salto", d: d1, lat: fin[0], lon: fin[1], lat2: hasta[0], lon2: hasta[1], desde: nomDesde, hasta: nomHasta });
     // conNogo === false => este enlace puede subir por una bajada (no había alternativa)
     segmentos.push({ tipo: "enlace", nombre: etiqueta, puntos: pts, conNogo });
   }
 
   // Se recorre la lista en orden; "pos" es donde está el ciclista en cada momento
-  let pos = null;
+  let pos = null, posNombre = null;
   let nEnlace = 0, nBajada = 0;
 
   if (puntoInicio) {
-    pos = puntoInicio;
+    pos = puntoInicio; posNombre = "el inicio";
     waypoints.push({ lat: puntoInicio[0], lon: puntoInicio[1], name: "Inicio ruta" });
   }
 
   for (const item of seleccion) {
     if (item.punto) {
       const destino = [item.lat, item.lon];
-      if (pos) await enlace(pos, destino, pos === puntoInicio ? "enlace inicial" : `enlace ${++nEnlace}`);
+      const nomP = `«${item.nombre || "punto intermedio"}»`;
+      if (pos) await enlace(pos, destino, pos === puntoInicio ? "enlace inicial" : `enlace ${++nEnlace}`, posNombre, nomP);
       waypoints.push({ lat: item.lat, lon: item.lon, name: item.nombre || "Punto intermedio" });
-      pos = destino;
+      pos = destino; posNombre = nomP;
       continue;
     }
     nBajada++;
     const nombre = item.properties.nombre || `Bajada ${nBajada}`;
     const ini = puntoInicioBajada(item);
-    if (pos) await enlace(pos, ini, pos === puntoInicio ? "enlace inicial" : `enlace ${++nEnlace}`);
+    if (pos) await enlace(pos, ini, pos === puntoInicio ? "enlace inicial" : `enlace ${++nEnlace}`, posNombre, `«${nombre}»`);
     waypoints.push({ lat: ini[0], lon: ini[1], name: `Inicio ${nombre}` });
     segmentos.push({ tipo: "bajada", nombre, puntos: geometriaBajada(item) });
     ultimaBajada = item;
     estado(`Bajada ${nBajada}/${bajadas.length}: ${nombre}`);
-    pos = puntoFinBajada(item);
+    pos = puntoFinBajada(item); posNombre = `«${nombre}»`;
   }
 
   if (puntoFin && pos) {
-    await enlace(pos, puntoFin, "enlace final");
+    await enlace(pos, puntoFin, "enlace final", posNombre, "el final");
     waypoints.push({ lat: puntoFin[0], lon: puntoFin[1], name: "Fin ruta" });
   }
+
+  if (problemas.length) {
+    const err = new Error(`Ruta incompleta: ${problemas.length} unión${problemas.length === 1 ? "" : "es"} sin camino`);
+    err.saltos = problemas;   // el index.html los marca en el mapa
+    throw err;
+  }
+  if (segmentos.length === 0) throw new Error("Los puntos están demasiado cerca para generar una ruta");
 
   estado("Generando GPX...");
   const puntos = segmentos.flatMap(s => s.puntos);
