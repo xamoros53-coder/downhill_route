@@ -332,6 +332,41 @@
     #toast { bottom: 18px; }
   }
   @media (min-width: 721px) { #btnPanelToggle .chev { display: none; } }
+
+  /* ===== Ronda 2: zona arriba, pasos abajo, opciones en la barra ===== */
+  #mapwrap { --base: 0px; --pasosH: 74px; }
+  #mapwrap.conPerfil { --base: 150px; }
+  #mapwrap.pasosOff, #mapwrap.conFicha { --pasosH: 0px; }
+  #mapwrap .maplibregl-ctrl-bottom-left, #mapwrap .maplibregl-ctrl-bottom-right { bottom: calc(var(--base) + var(--pasosH)) !important; }
+  #zonaBox { position: absolute; top: 12px; left: 66px; z-index: 9; width: min(300px, calc(100% - 130px)); display: flex; flex-direction: column; gap: 6px; }
+  #zonaBox #btnZona { box-shadow: 0 2px 12px rgba(0,0,0,.28); }
+  .zona-check { background: #fff; border-radius: 12px; padding: 6px 10px; min-height: 0; font-size: 12px; line-height: 1.25; box-shadow: 0 2px 10px rgba(0,0,0,.2); }
+  .zona-check input { width: 17px; height: 17px; }
+  #pasos { top: auto !important; left: 10px !important; right: 10px; width: auto !important; max-width: 440px; bottom: calc(var(--base) + 8px); padding: 10px 28px 8px 10px; }
+  #mapwrap.pasosOff #pasos, #mapwrap.conFicha #pasos { display: none; }
+  #pasosCerrar { position: absolute; top: 4px; right: 5px; width: 26px; height: 26px; border: 0; background: none; color: #7a8780; font-size: 20px; line-height: 1; cursor: pointer; padding: 0; }
+  #pasoInfo { margin: 8px 0 2px; padding: 8px 10px; background: var(--brand-soft); border-radius: 10px; font-size: 12.5px; line-height: 1.4; color: #2b3b33; }
+  #btnPasosVer { display: none; position: absolute; left: 10px; bottom: calc(var(--base) + 10px); z-index: 9; width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--brand); color: #fff; font-size: 17px; font-weight: 700; box-shadow: 0 2px 10px rgba(0,0,0,.3); cursor: pointer; padding: 0; }
+  #mapwrap.pasosOff:not(.conFicha) #btnPasosVer { display: block; }
+  #mapwrap #ficha { bottom: calc(var(--base) + var(--pasosH) + 10px) !important; }
+  #toast { bottom: calc(var(--base) + var(--pasosH) + 12px) !important; }
+
+  #barraRuta { flex-wrap: wrap; gap: 8px 10px; padding: 4px 12px 10px !important; align-items: center; }
+  #barraRuta .grip { display: none !important; }
+  #btnPanelToggle { flex: 0 0 100%; flex-direction: column; justify-content: center; align-items: center; gap: 1px; height: 30px; padding: 2px 0; }
+  #btnPanelToggle .pill { display: block; width: 56px; height: 6px; border-radius: 3px; background: var(--brand); opacity: .6; }
+  #btnPanelToggle .flecha { color: var(--brand); font-size: 11px; line-height: 1; }
+  .ctl-ruta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .ctl-ruta .check { min-height: 28px; font-size: 14px; font-weight: 600; }
+  .ctl-ruta .tipo-fila { flex-wrap: nowrap; }
+  .ctl-ruta .tipo-fila select { min-width: 0; height: 38px; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+  #btnGenerar { align-self: stretch; min-height: 50px; padding: 0 18px; }
+  #infoPerfil { flex: 0 0 100%; order: 9; }
+  @media (min-width: 721px) { #btnPanelToggle { display: none; } #zonaBox { top: 12px; } }
+  @media (max-width: 720px) {
+    #zonaBox { top: 10px; left: 62px; }
+    #mapwrap #ficha { max-height: calc(100% - var(--base) - 140px) !important; }
+  }
 </style>
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="64x64" href="./icons/favicon-64.png">
@@ -351,18 +386,20 @@
         <div id="busquedaResultados" aria-live="polite"></div>
       </div>
     </div>
-    <div id="pasos" class="zona-abierta">
+    <div id="zonaBox">
+      <button id="btnZona" type="button">Descargar esta zona</button>
+      <label class="check zona-check" for="modoAmplio" title="Añade más senderos abiertos a la bici que no llevan etiqueta MTB. Pueden no ser de bajada. Zona máx. 120 km²"><input type="checkbox" id="modoAmplio" /><span>Incluir senderos sin etiqueta MTB</span></label>
+    </div>
+    <div id="pasos">
+      <button id="pasosCerrar" type="button" aria-label="Ocultar pasos" title="Ocultar">×</button>
       <ol class="stepper">
         <li data-p="1" class="activo"><b>1</b><span>Descargar zona</span></li>
         <li data-p="2"><b>2</b><span>Elegir bajadas</span></li>
         <li data-p="3"><b>3</b><span>Generar ruta</span></li>
       </ol>
-      <div id="pasoAyuda"></div>
-      <div id="zonaCuerpo">
-        <button id="btnZona" type="button">Descargar esta zona</button>
-        <label class="check" for="modoAmplio"><input type="checkbox" id="modoAmplio" /><span>Incluir senderos sin etiqueta MTB (experimental)<small>Añade más senderos abiertos a la bici, pero algunos pueden no ser de bajada. Zona máx. 120 km².</small></span></label>
-      </div>
+      <div id="pasoInfo" hidden></div>
     </div>
+    <button id="btnPasosVer" type="button" aria-label="Mostrar pasos" title="Mostrar los pasos">?</button>
     <div id="toast"><span class="t"></span></div>
     <div id="ficha"></div>
     <div id="perfilAlt">
@@ -373,15 +410,30 @@
   <aside id="panel">
     <div id="miRuta">
       <div id="barraRuta">
-        <span class="grip"></span>
-        <button id="btnPanelToggle" type="button" aria-expanded="false" aria-controls="detalle">
-          <span class="barra-txt">
-            <span class="t1">Mi ruta <span id="miRutaContador">0 bajadas</span></span>
-            <span class="tot" id="miRutaTotales">Sin bajadas todavía</span>
-          </span>
-          <span class="chev"><span class="flecha">▲</span><span class="t-abrir">Ver lista</span><span class="t-cerrar">Ocultar</span></span>
-        </button>
+        <button id="btnPanelToggle" type="button" aria-expanded="false" aria-controls="detalle" aria-label="Mostrar u ocultar la lista de bajadas"><span class="pill"></span><span class="flecha">▲</span></button>
+        <div class="ctl-ruta">
+          <label class="check" for="volverInicio"><input type="checkbox" id="volverInicio" checked />Ruta circular</label>
+          <div class="tipo-fila">
+            <select id="perfil" aria-label="Modo de enrutamiento">
+              <option value="trekking">Modo Trekking</option>
+              <option value="safety">Modo Safety</option>
+              <option value="mtb">Modo MTB</option>
+              <option value="gravel">Modo Gravel</option>
+            </select>
+            <button type="button" id="btnInfoPerfil" class="btn-info" aria-expanded="false" aria-controls="infoPerfil" aria-label="Qué significa cada modo">i</button>
+          </div>
+        </div>
         <button id="btnGenerar" disabled>Generar ruta</button>
+        <div id="infoPerfil" hidden>
+          <p>Modo de enrutamiento: cómo se unen las bajadas entre sí (subidas y conexiones). No cambia las bajadas.</p>
+          <dl>
+            <dt>Trekking</dt><dd>Equilibrado: mezcla pistas y caminos con poco tráfico. Buena opción por defecto.</dd>
+            <dt>Safety</dt><dd>Evita carreteras con tráfico, aunque la ruta dé más vuelta.</dd>
+            <dt>MTB</dt><dd>Prefiere caminos, pistas y senderos. Más divertido, pero más lento y técnico.</dd>
+            <dt>Gravel</dt><dd>Pistas y caminos firmes. Más rodador, evita senderos técnicos.</dd>
+          </dl>
+        </div>
+        <div hidden><span id="miRutaContador"></span><span id="miRutaTotales"></span></div>
       </div>
       <div id="estadoRuta"></div>
       <div id="progresoZona"><i></i></div>
@@ -390,30 +442,6 @@
           <div class="sec-titulo">Tus bajadas · arrastra <svg class="ico-asa" width="14" height="16" viewBox="0 0 14 16" fill="currentColor"><circle cx="4" cy="3" r="1.6"/><circle cx="10" cy="3" r="1.6"/><circle cx="4" cy="8" r="1.6"/><circle cx="10" cy="8" r="1.6"/><circle cx="4" cy="13" r="1.6"/><circle cx="10" cy="13" r="1.6"/></svg> para ordenar</div>
           <div id="miRutaLista"></div>
           <div id="resumenRuta"></div>
-          <div class="sec-titulo">Ajustes de la ruta</div>
-          <div class="ajustes">
-            <label class="check" for="volverInicio"><input type="checkbox" id="volverInicio" checked /><span>Ruta circular<small>Al final vuelve al punto de partida</small></span></label>
-            <div class="tipo-fila">
-              <label for="perfil">Tipo de enrutamiento</label>
-              <button type="button" id="btnInfoPerfil" class="btn-info" aria-expanded="false" aria-controls="infoPerfil" aria-label="Qué significa cada tipo">i</button>
-              <select id="perfil">
-                <option value="trekking">Trekking</option>
-                <option value="safety">Safety</option>
-                <option value="mtb">MTB</option>
-                <option value="gravel">Gravel</option>
-              </select>
-            </div>
-            <div id="infoPerfil" hidden>
-              <p>Define cómo se unen las bajadas entre sí (subidas y conexiones). No cambia las bajadas.</p>
-              <dl>
-                <dt>Trekking</dt><dd>Equilibrado: mezcla pistas y caminos con poco tráfico. Buena opción por defecto.</dd>
-                <dt>Safety</dt><dd>Evita carreteras con tráfico, aunque la ruta dé más vuelta.</dd>
-                <dt>MTB</dt><dd>Prefiere caminos, pistas y senderos. Más divertido, pero más lento y técnico.</dd>
-                <dt>Gravel</dt><dd>Pistas y caminos firmes. Más rodador, evita senderos técnicos.</dd>
-              </dl>
-            </div>
-          </div>
-          
           <button id="btnDescargarGPX" disabled style="display:none">Descargar GPX</button>
           <div class="acciones">
             <button id="btnBorrarTodo" type="button" class="peligro" title="Quita las bajadas, los puntos y la ruta generada">Limpiar ruta</button>
@@ -538,7 +566,7 @@ function setPanel(abierto) {
 const barraRutaEl = document.getElementById("barraRuta");
 let gesto = null, huboArrastre = false;
 barraRutaEl.addEventListener("pointerdown", (e) => {
-  if (e.target.closest("#btnGenerar")) { gesto = null; return; }
+  if (e.target.closest("#btnGenerar, .ctl-ruta, #infoPerfil")) { gesto = null; return; }
   gesto = { y: e.clientY }; huboArrastre = false;
 });
 barraRutaEl.addEventListener("pointermove", (e) => {
@@ -551,7 +579,7 @@ barraRutaEl.addEventListener("pointerup", (e) => {
 });
 barraRutaEl.addEventListener("pointercancel", () => { gesto = null; });
 barraRutaEl.addEventListener("click", (e) => {                       // toque en cualquier parte de la barra
-  if (e.target.closest("#btnGenerar")) return;
+  if (e.target.closest("#btnGenerar, .ctl-ruta, #infoPerfil")) return;
   if (huboArrastre) { huboArrastre = false; return; }
   setPanel(!miRutaEl.classList.contains("abierto"));
 });
@@ -815,27 +843,36 @@ function toast(msg) {
   const el = document.getElementById("toast"); el.firstElementChild.textContent = msg; el.classList.add("on");
   clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("on"), 2200);
 }
-let zonaManual = false;
+const PASOS_INFO = {
+  1: "Descargar zona: acerca el mapa a la zona donde vas a rodar y pulsa «Descargar esta zona» (botón de arriba). Marca la casilla si quieres incluir senderos sin etiqueta MTB.",
+  2: "Elegir bajadas: toca una bajada en el mapa, mira su ficha y pulsa «Añadir a mi ruta». Puedes añadir varias y ordenarlas en el panel de abajo.",
+  3: "Generar ruta: elige ruta circular y el modo de enrutamiento, y pulsa «Generar ruta». Cuando esté lista, descarga el GPX."
+};
+let pasoInfo = null;
 function actualizarPasos() {
   const nBaj = miRuta.filter(id => !esPunto(id)).length;
-  const hay = porId.size > 0;
-  let paso = !hay ? 1 : (nBaj === 0 && !puedeGenerar()) ? 2 : 3;
-  const lista = document.querySelectorAll("#pasos .stepper li");
-  lista.forEach(li => { const n = +li.dataset.p; li.classList.toggle("activo", n === paso && !rutaGenerada); li.classList.toggle("hecho", n < paso || (rutaGenerada && n <= 3)); });
-  const txt = rutaGenerada ? "Ruta lista. Revísala en el mapa y pulsa «Descargar GPX» (botón verde de abajo)."
-    : paso === 1 ? "Acerca el mapa a la zona donde vas a rodar y descarga sus bajadas."
-    : paso === 2 ? "Toca una bajada del mapa y pulsa «Añadir a mi ruta». Puedes añadir varias."
-    : `Tienes ${nBaj} bajada${nBaj === 1 ? "" : "s"}. Ordénalas en el panel de abajo y pulsa «Generar ruta».`;
-  document.getElementById("pasoAyuda").textContent = txt;
-  document.getElementById("pasos").classList.toggle("zona-abierta", paso === 1 || zonaManual || cargandoZona);
+  const paso = porId.size === 0 ? 1 : (nBaj === 0 && !puedeGenerar()) ? 2 : 3;
+  document.querySelectorAll("#pasos .stepper li").forEach(li => {
+    const n = +li.dataset.p;
+    li.classList.toggle("activo", n === paso && !rutaGenerada);
+    li.classList.toggle("hecho", n < paso || !!rutaGenerada);
+  });
+  const inf = document.getElementById("pasoInfo");
+  inf.hidden = !pasoInfo; if (pasoInfo) inf.textContent = PASOS_INFO[pasoInfo];
 }
 document.querySelector("#pasos .stepper").addEventListener("click", (e) => {
   const li = e.target.closest("li"); if (!li) return;
-  const n = +li.dataset.p;
-  if (n === 1) { zonaManual = !zonaManual; actualizarPasos(); }
-  else if (n === 2) { zonaManual = false; setPanel(false); actualizarPasos(); }
-  else setPanel(true);
+  const n = +li.dataset.p; pasoInfo = pasoInfo === n ? null : n; actualizarPasos();
 });
+const mapwrapEl = document.getElementById("mapwrap");
+try { if (localStorage.getItem("pasosOff") === "1") mapwrapEl.classList.add("pasosOff"); } catch (e) {}
+function ponerPasosOff(off) {
+  mapwrapEl.classList.toggle("pasosOff", off);
+  try { localStorage.setItem("pasosOff", off ? "1" : "0"); } catch (e) {}
+  setTimeout(() => map.resize(), 0);
+}
+document.getElementById("pasosCerrar").addEventListener("click", () => ponerPasosOff(true));
+document.getElementById("btnPasosVer").addEventListener("click", () => ponerPasosOff(false));
 function actualizarContornoRuta() {
   if (!map.getLayer("tramos-miruta")) return;
   const ids = miRuta.filter(id => !esPunto(id));
@@ -1033,7 +1070,7 @@ async function cargarZona() {
     setEstado("Error: " + e.message);
   } finally {
     prog.fin();
-    cargandoZona = false; zonaManual = false;
+    cargandoZona = false;
     btn.disabled = false; actualizarPasos();
   }
 }
@@ -1314,7 +1351,7 @@ function mostrarPopup(f, lngLat, aviso) {
       <button class="popup-add ${dentro ? "in" : ""}" id="popupAdd" data-id="${id}">
         ${dentro ? "Quitar de mi ruta" : "Añadir a mi ruta"}
       </button>`;
-  ficha.style.display = "block";
+  ficha.style.display = "block"; document.getElementById("mapwrap").classList.add("conFicha");
   ficha.scrollTop = 0;
   if (cargado) dibujarPerfilFicha(f);
   ficha.querySelector(".cerrar").addEventListener("click", deseleccionar);
@@ -1324,7 +1361,7 @@ function mostrarPopup(f, lngLat, aviso) {
 function deseleccionar() {
   seleccionada = null;
   salirFichaPerfil();
-  document.getElementById("ficha").style.display = "none";
+  document.getElementById("ficha").style.display = "none"; document.getElementById("mapwrap").classList.remove("conFicha");
   if (map.getLayer("tramos-sel")) map.setFilter("tramos-sel", ["==", ["get", "bajada_id"], ""]);
   const src = map.getSource("sel-flechas");
   if (src) src.setData({ type: "FeatureCollection", features: [] });
@@ -1765,7 +1802,6 @@ document.getElementById("btnGenerar").addEventListener("click", async () => {
     r.segmentos.forEach(sg => { sg.color = sg.tipo === "bajada" ? colorDe(soloBajadas[bi++].properties) : COLOR_RUTA; });
     dibujarRuta(r.segmentos);
     mostrarPerfil(r.segmentos, r.stats, seleccion.filter(x => x.punto));
-    mostrarResumenRuta(r.stats);
     document.getElementById("btnDescargarGPX").disabled = false;
     document.getElementById("btnGenerar").textContent = "Descargar GPX";
     const sinEvitar = r.segmentos.filter(sg => sg.tipo === "enlace" && sg.conNogo === false).length;
