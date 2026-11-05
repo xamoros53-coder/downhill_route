@@ -581,8 +581,21 @@
     return { feature, tramos };
   }
 
+  // Vacía la caché de zonas descargadas (la usa el botón de limpiar caché)
+  async function cacheLimpiar() {
+    try {
+      const db = await abrirDB();
+      await new Promise(res => {
+        const tx = db.transaction("zonas", "readwrite");
+        tx.objectStore("zonas").clear();
+        tx.oncomplete = tx.onerror = tx.onabort = () => res();
+      });
+      db.close();
+    } catch (e) { /* nada que limpiar */ }
+  }
+
   window.OSM = {
-    descargarZona, evaluar, areaKm2,
+    descargarZona, evaluar, areaKm2, cacheLimpiar,
     get MAX_AREA_KM2() { return modoAmplio ? MAX_AREA_AMPLIO_KM2 : MAX_AREA_KM2; },
     setModoAmplio, MIN_LENGTH_M, MIN_CAIDA_M, MIN_PEND_PCT
   };

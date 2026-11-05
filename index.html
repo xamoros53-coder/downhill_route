@@ -234,6 +234,19 @@
   .resultado-busqueda small { display:block; color:#777; font-size:12px; margin-top:1px; }
   .resultado-busqueda.btn-lugar { color:#1f6fd1; font-weight:600; }
   .ctrl-base { font-size:16px; line-height:1; }
+
+  /* ===== Configuración ===== */
+  #config { border-top: 1px solid #edf0f2; padding-top: 4px; }
+  #config > summary { cursor: pointer; list-style: none; display: flex; align-items: center; min-height: 36px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #6b7280; user-select: none; }
+  #config > summary::-webkit-details-marker { display: none; }
+  #config > summary::after { content: "▸"; margin-left: auto; transition: transform .15s; }
+  #config[open] > summary::after { transform: rotate(90deg); }
+  .cfg-fila { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+  .cfg-fila .txt { flex: 1; min-width: 0; font-size: 13px; color: #333; }
+  .cfg-fila .txt small { display: block; color: #777; font-size: 12px; margin-top: 1px; }
+  .cfg-fila button { flex: none; min-height: 32px; padding: 0 12px; border: 1px solid #e7b4b4; background: #fff; color: #d62f2f; border-radius: 8px; font-size: 12px; cursor: pointer; }
+  .cfg-fila button:hover:not(:disabled) { background: #d62f2f; border-color: #d62f2f; color: #fff; }
+  .cfg-fila button:disabled { opacity: .45; cursor: default; }
 </style>
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="64x64" href="./icons/favicon-64.png">
@@ -300,6 +313,13 @@
           <div class="acciones">
             <button id="btnBorrarTodo" type="button" class="peligro" title="Quita bajadas, inicio, fin y ruta generada">Empezar de cero</button>
           </div>
+          <details id="config">
+            <summary>⚙ Configuración</summary>
+            <div class="cfg-fila">
+              <div class="txt">Bajadas descargadas<small id="cfgInfo">…</small></div>
+              <button id="cfgLimpiar" type="button" title="Borra las bajadas descargadas (se conservan las de tu ruta). Podrás volver a cargarlas con «Cargar esta zona»">Limpiar</button>
+            </div>
+          </details>
         </div>
       </div>
     </div>
@@ -1652,6 +1672,45 @@ document.getElementById("btnBorrarTodo").addEventListener("click", () => {
   renderMiRuta(); actualizarBotonesRuta(); actualizarPopupBoton(); actualizarUIPuntos();
   document.getElementById("estadoRuta").textContent = "";
   ajustarVista();
+});
+
+// ---- Configuración: limpiar las bajadas descargadas ----
+const cfgEl = document.getElementById("config");
+function fmtBytes(b) {
+  if (!b) return "0 KB";
+  if (b < 1024 * 1024) return Math.max(1, Math.round(b / 1024)) + " KB";
+  return (b / 1048576).toFixed(1).replace(".", ",") + " MB";
+}
+async function actualizarConfig() {
+  const n = porId.size;
+  let txt = n ? `${n.toLocaleString("es-ES")} bajada${n === 1 ? "" : "s"} guardada${n === 1 ? "" : "s"}` : "Ninguna guardada";
+  try {
+    if (navigator.storage && navigator.storage.estimate) {
+      const e = await navigator.storage.estimate();
+      if (e.usage) txt += ` · la app ocupa ≈${fmtBytes(e.usage)}`;
+    }
+  } catch (e) {}
+  document.getElementById("cfgInfo").textContent = txt;
+}
+cfgEl.addEventListener("toggle", () => { if (cfgEl.open) actualizarConfig(); });
+
+document.getElementById("cfgLimpiar").addEventListener("click", async () => {
+  if (cargandoZona) { setEstado("Espera a que termine la carga de la zona para limpiar."); return; }
+  const enRuta = new Set(miRuta.filter(id => !esPunto(id)));
+  if (!confirm("¿Borrar las bajadas descargadas?" + (enRuta.size ? ` Se conservan las ${enRuta.size} de tu ruta.` : "") + " Podrás volver a cargarlas con «Cargar esta zona».")) return;
+  let n = 0;
+  for (const id of [...porId.keys()]) {
+    if (enRuta.has(id)) continue;
+    porId.delete(id); tramosPorId.delete(id); tiempoCarga.delete(id); n++;
+  }
+  descartadas = new Set();
+  try { localStorage.removeItem(STORAGE_DESCARTADAS); } catch (e) {}
+  if (seleccionada && !enRuta.has(seleccionada)) deseleccionar();
+  actualizarMapa();
+  await volcarBajadasLocal();
+  await OSM.cacheLimpiar();
+  setEstado(`${n} bajada${n === 1 ? "" : "s"} borrada${n === 1 ? "" : "s"}. Acerca el mapa y pulsa «Cargar esta zona» para volver a descargar.`);
+  actualizarConfig();
 });
 </script>
 </body>
