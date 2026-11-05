@@ -14,7 +14,8 @@
   const OVERPASS_URLS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
-    "https://overpass.private.coffee/api/interpreter"
+    "https://overpass.private.coffee/api/interpreter",
+    "https://overpass.openstreetmap.fr/api/interpreter"
   ];
   // Modo amplio (opcional, apagado por defecto): además de lo etiquetado con mtb:*, descarga relaciones
   // route=mtb y los highway=path abiertos a la bici que NO llevan etiquetas MTB. Apagado = comportamiento original.
@@ -30,7 +31,7 @@
   const MIN_PEND_PCT = 2;
   const CACHE_TTL_MS = 7 * 24 * 3600 * 1000;   // 7 días: los senderos de OSM cambian poco
   const TIMEOUT_MS = 60000;        // espera máxima por servidor
-  const ESCALONADO_MS = 3500;      // si un servidor no responde en este tiempo, se lanza también el siguiente
+  const ESCALONADO_MS = 7000;      // si un servidor no responde en este tiempo, se lanza también el siguiente
   const MAX_ZONAS_CACHE = 4;       // zonas recientes que se guardan para no volver a descargarlas
 
   // Degradado entre dos colores contiguos
@@ -356,21 +357,43 @@
       estado("Usando los senderos de esta zona descargados hace poco…");
       data = guardado.bbox.every((v, i) => v === bb[i]) ? guardado.data : recortarData(guardado.data, bb);
     } else {
-      const b = `${s},${w},${n},${e}`;
-      const HW = `["highway"~"^(path|track)$"]`;
-      const NOBICI = `["bicycle"!~"^(no|dismount)$"]["access"!~"^(no|private)$"]`;
-      let q = `way${HW}["mtb:scale"](${b});`
-        + `way${HW}["mtb:scale:imba"](${b});`
-        + `way${HW}["mtb:name"](${b});`;
-      if (modoAmplio) {
-        q += `way(r.rutas)${HW};`                                                      // tramos de rutas MTB marcadas
-          + `way["highway"="path"]${NOBICI}["foot"!="designated"](${b});`              // senderos abiertos a la bici (sin sendas solo peatonales)
-          + `way["highway"="path"]["foot"="designated"]["bicycle"~"^(yes|designated|permissive)$"](${b});`  // peatonales que admiten bici
-          + `way["highway"="track"]["tracktype"~"^grade[45]$"]${NOBICI}(${b});`;       // pistas rudas (grade3 ya la filtraba esPistaDeCoche)
+      const construir = (s2, w2, n2, e2) => {
+        const b = `${s2},${w2},${n2},${e2}`;
+        const HW = `["highway"~"^(path|track)$"]`;
+        const NOBICI = `["bicycle"!~"^(no|dismount)$"]["access"!~"^(no|private)$"]`;
+        let q = `way${HW}["mtb:scale"](${b});`
+          + `way${HW}["mtb:scale:imba"](${b});`
+          + `way${HW}["mtb:name"](${b});`;
+        if (modoAmplio) {
+          q += `way(r.rutas)${HW};`                                                      // tramos de rutas MTB marcadas
+            + `way["highway"="path"]${NOBICI}["foot"!="designated"](${b});`              // senderos abiertos a la bici (sin sendas solo peatonales)
+            + `way["highway"="path"]["foot"="designated"]["bicycle"~"^(yes|designated|permissive)$"](${b});`  // peatonales que admiten bici
+            + `way["highway"="track"]["tracktype"~"^grade[45]$"]${NOBICI}(${b});`;       // pistas rudas (grade3 ya la filtraba esPistaDeCoche)
+        }
+        const pre = modoAmplio ? `rel["route"="mtb"](${b})->.rutas;` : "";
+        return `[out:json][timeout:60];${pre}(${q});out body geom qt;`;
+      };
+      try {
+        data = await consultarOverpass(construir(s, w, n, e), estado);
+      } catch (err) {
+        // Overpass falla o tarda demasiado con la zona entera: se pide en 4 trozos más pequeños y se juntan
+        console.warn("Overpass falló con la zona entera; se prueba en 4 trozos", err);
+        const ms = (s + n) / 2, mw = (w + e) / 2;
+        const trozos = [[s, w, ms, mw], [s, mw, ms, e], [ms, w, n, mw], [ms, mw, n, e]];
+        const vistos = new Set(), elements = [];
+        for (let i = 0; i < trozos.length; i++) {
+          estado(`La descarga va lenta: pidiendo la zona en trozos más pequeños (${i + 1}/${trozos.length})…`);
+          const t = trozos[i];
+          let parte;
+          try { parte = await consultarOverpass(construir(t[0], t[1], t[2], t[3]), () => {}); }
+          catch (e2) { throw err; }   // si un trozo también falla, se da el error original
+          for (const el of parte.elements || []) {
+            const k = el.type + el.id;
+            if (!vistos.has(k)) { vistos.add(k); elements.push(el); }
+          }
+        }
+        data = { elements };
       }
-      const pre = modoAmplio ? `rel["route"="mtb"](${b})->.rutas;` : "";
-      const query = `[out:json][timeout:60];${pre}(${q});out body geom qt;`;
-      data = await consultarOverpass(query, estado);
       guardarCache(bb, data);   // sin await: no hace falta esperar para seguir
     }
     const { ways, pistas } = tramosValidos(data);
