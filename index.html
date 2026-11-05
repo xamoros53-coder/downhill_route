@@ -463,7 +463,7 @@
 
 <script>
 // Versión de este index.html: aparece en la consola y en el título de la pestaña
-window.APP_VERSION = "zona-v4";
+window.APP_VERSION = "zona-v6";
 console.log("[app] index.html versión", window.APP_VERSION);
 document.title = document.title + " · " + window.APP_VERSION;
 // Quita service workers y cachés de versiones anteriores (si los hubiera) para ver siempre esta versión
@@ -1029,7 +1029,8 @@ function iniciarProgreso(btn) {
 }
 
 // ---- Cargar la zona visible: senderos MTB de OSM + sentido por la elevación de los extremos ----
-// Captura en document: el botón responde aunque otro elemento o script frene el evento
+// Captura en document: el botón responde aunque otro elemento o script frene el evento.
+// Siempre descarga la zona de nuevo desde el origen (OpenStreetMap), sin usar la caché.
 document.addEventListener("click", (e) => {
   const b = e.target && e.target.closest ? e.target.closest("#btnZona") : null;
   if (!b) return;
@@ -1059,24 +1060,23 @@ async function cargarZona() {
     toast("Descargando la zona…");
     prog = iniciarProgreso(btn);
     prog.set("Buscando bajadas en la zona…");
-    // Siempre se descarga de nuevo: se vacía la caché de consultas de osm.js
+    // Siempre se descarga de nuevo desde el origen: se vacía la caché de zonas de osm.js
+    const t0 = performance.now();
     try { if (typeof OSM.cacheLimpiar === "function") await OSM.cacheLimpiar(); } catch (e) { console.warn("[zona] no se pudo vaciar la caché de OSM", e); }
     // osm.js informa del servidor al que se conecta: se oculta y se muestra un texto sobre las bajadas
     const sinServidor = (m) => /overpass|servidor|mirror|https?:|\.(de|fr|ru|ch|org|com|net)\b|conect|reintent/i.test(String(m || "")) ? "Buscando bajadas en la zona…" : m;
     const cand = await OSM.descargarZona(bbox, (m, f) => prog.set(sinServidor(m), f));
-    console.log("[zona] candidatas:", cand.length);
+    const t1 = performance.now();
+    console.log("[zona] candidatas:", cand.length, "· descarga+agrupado", Math.round(t1 - t0), "ms");
     if (!cand.length) {
       const m = "No hay senderos con etiquetas MTB en esta zona.";
       setEstado(m); toast(m);
       return;
     }
-    // Las bajadas que están en tu ruta se conservan tal cual; el resto se vuelve a evaluar.
-    // Las "descartadas" de otras sesiones también se reintentan.
+    // Las bajadas de tu ruta se conservan tal cual; el resto se vuelve a evaluar (la elevación ya está en caché, es rápido).
+    // Las «descartadas» (el perfil completo demostró que no bajan) no se vuelven a mostrar.
     const enRuta = new Set(miRuta.filter(id => !esPunto(id)));
-    const nuevos = cand.filter(c => !enRuta.has(c.id));
-    let hayDescartadas = false;
-    for (const c of nuevos) if (descartadas.delete(c.id)) hayDescartadas = true;
-    if (hayDescartadas) { try { localStorage.setItem(STORAGE_DESCARTADAS, JSON.stringify([...descartadas])); } catch (e) {} }
+    const nuevos = cand.filter(c => !enRuta.has(c.id) && !descartadas.has(c.id));
     if (!nuevos.length) {
       const m = "Zona descargada: todas las bajadas ya están en tu ruta.";
       setEstado(m); toast(m);
@@ -1096,6 +1096,7 @@ async function cargarZona() {
       if (!r) { dudosas++; porId.delete(c.id); tramosPorId.delete(c.id); tiempoCarga.delete(c.id); continue; }   // ante la duda, no se muestra
       porId.set(c.id, r.feature); tramosPorId.set(c.id, r.tramos); tiempoCarga.set(c.id, Date.now()); validas++;
     }
+    console.log("[zona] elevación+evaluación", Math.round(performance.now() - t1), "ms");
     actualizarMapa();
     guardarBajadasLocal();
     const msg = validas

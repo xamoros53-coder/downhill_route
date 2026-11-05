@@ -13,7 +13,7 @@
   const ZOOM_CRIBADO = 13;       // ~7 m/px: comprobar el sentido de muchas bajadas con pocas teselas
   const ZOOM_PERFIL = 14;        // ~3,6 m/px: perfil de una bajada
   const MAX_TESELAS = 40;        // teselas decodificadas en memoria (~1 MB cada una)
-  const CONC_TESELAS = 4;        // descargas de teselas a la vez
+  const CONC_TESELAS = 6;        // descargas de teselas a la vez
   const REINTENTOS_TESELA = 2;
 
   // --- Open-Meteo (solo respaldo) ----------------------------------------------
