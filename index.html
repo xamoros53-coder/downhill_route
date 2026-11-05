@@ -258,7 +258,9 @@
   .popup-add.in { background: #fff; color: var(--ink); border: 1px solid #c9d1cc; }
   .popup-add.in:hover { background: #f3f5f4; color: var(--ink); }
   #btnBuscarToggle { color: var(--brand); display: flex; align-items: center; justify-content: center; padding: 0; }
-  #busquedaWrap { z-index: 10; }
+  /* El contenedor de la búsqueda es ancho y transparente: no debe tapar el botón «Descargar esta zona» */
+  #busquedaWrap { z-index: 10; pointer-events: none; }
+  #btnBuscarToggle, #busquedaPanel { pointer-events: auto; }
   #busquedaInput:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(42,107,74,.15); }
   .resultado-busqueda.btn-lugar { color: var(--brand); }
   #progresoZona i { background: #4caf7a; }
@@ -393,7 +395,7 @@
     <div id="pasos">
       <button id="pasosCerrar" type="button" aria-label="Ocultar pasos" title="Ocultar">×</button>
       <ol class="stepper">
-        <li data-p="1" class="activo"><b>1</b><span>Descargar zona</span></li>
+        <li data-p="1"><b>1</b><span>Descargar zona</span></li>
         <li data-p="2"><b>2</b><span>Elegir bajadas</span></li>
         <li data-p="3"><b>3</b><span>Generar ruta</span></li>
       </ol>
@@ -459,6 +461,15 @@
   </aside>
 </div>
 
+<script>
+// Versión de este index.html: aparece en la consola y en el título de la pestaña
+window.APP_VERSION = "zona-v4";
+console.log("[app] index.html versión", window.APP_VERSION);
+document.title = document.title + " · " + window.APP_VERSION;
+// Quita service workers y cachés de versiones anteriores (si los hubiera) para ver siempre esta versión
+if (navigator.serviceWorker) navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => { console.log("[app] service worker eliminado", r.scope); r.unregister(); })).catch(() => {});
+if (window.caches) caches.keys().then(ks => ks.forEach(k => { console.log("[app] caché eliminada", k); caches.delete(k); })).catch(() => {});
+</script>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="osm.js"></script>
 <script src="elevacion.js"></script>
@@ -850,12 +861,10 @@ const PASOS_INFO = {
 };
 let pasoInfo = null;
 function actualizarPasos() {
-  const nBaj = miRuta.filter(id => !esPunto(id)).length;
-  const paso = porId.size === 0 ? 1 : (nBaj === 0 && !puedeGenerar()) ? 2 : 3;
+  // Panel puramente informativo: ningún paso se resalta según el estado de la app.
+  // Solo se muestra el texto del paso que el usuario toque.
   document.querySelectorAll("#pasos .stepper li").forEach(li => {
-    const n = +li.dataset.p;
-    li.classList.toggle("activo", n === paso && !rutaGenerada);
-    li.classList.toggle("hecho", n < paso || !!rutaGenerada);
+    li.classList.remove("activo", "hecho");
   });
   const inf = document.getElementById("pasoInfo");
   inf.hidden = !pasoInfo; if (pasoInfo) inf.textContent = PASOS_INFO[pasoInfo];
@@ -1020,30 +1029,57 @@ function iniciarProgreso(btn) {
 }
 
 // ---- Cargar la zona visible: senderos MTB de OSM + sentido por la elevación de los extremos ----
-document.getElementById("btnZona").addEventListener("click", cargarZona);
+// Captura en document: el botón responde aunque otro elemento o script frene el evento
+document.addEventListener("click", (e) => {
+  const b = e.target && e.target.closest ? e.target.closest("#btnZona") : null;
+  if (!b) return;
+  console.log("[zona] click en «Descargar esta zona»");
+  cargarZona();
+}, true);
 
+let cargandoDesde = 0;
 async function cargarZona() {
-  if (cargandoZona) return;
-  OSM.setModoAmplio(document.getElementById("modoAmplio").checked);
-  const b = map.getBounds();
-  const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()];
-  const area = OSM.areaKm2(bbox);
-  if (area > OSM.MAX_AREA_KM2) {
-    setEstado(`La zona visible es muy grande (${Math.round(area)} km²). Acerca el mapa (máximo ${OSM.MAX_AREA_KM2} km²).`);
-    return;
-  }
-  cargandoZona = true;
+  // Si una carga anterior se quedó colgada (>60 s), el botón vuelve a funcionar
+  if (cargandoZona && Date.now() - cargandoDesde < 60000) { toast("Ya se está cargando la zona…"); return; }
   const btn = document.getElementById("btnZona");
-  btn.disabled = true;
-  const prog = iniciarProgreso(btn);
+  let prog = null;
+  cargandoZona = true; cargandoDesde = Date.now();
   try {
+    if (typeof OSM === "undefined" || typeof Elev === "undefined") throw new Error("no se han cargado osm.js / elevacion.js (recarga la página)");
+    if (typeof OSM.setModoAmplio === "function") OSM.setModoAmplio(document.getElementById("modoAmplio").checked);
+    const b = map.getBounds();
+    const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()];
+    const area = OSM.areaKm2(bbox);
+    if (area > OSM.MAX_AREA_KM2) {
+      const m = `La zona visible es muy grande (${Math.round(area)} km²). Acerca el mapa (máximo ${OSM.MAX_AREA_KM2} km²).`;
+      setEstado(m); toast(m);
+      return;
+    }
+    btn.disabled = true;
+    toast("Descargando la zona…");
+    prog = iniciarProgreso(btn);
     prog.set("Buscando bajadas en la zona…");
+    // Siempre se descarga de nuevo: se vacía la caché de consultas de osm.js
+    try { if (typeof OSM.cacheLimpiar === "function") await OSM.cacheLimpiar(); } catch (e) { console.warn("[zona] no se pudo vaciar la caché de OSM", e); }
     // osm.js informa del servidor al que se conecta: se oculta y se muestra un texto sobre las bajadas
     const sinServidor = (m) => /overpass|servidor|mirror|https?:|\.(de|fr|ru|ch|org|com|net)\b|conect|reintent/i.test(String(m || "")) ? "Buscando bajadas en la zona…" : m;
     const cand = await OSM.descargarZona(bbox, (m, f) => prog.set(sinServidor(m), f));
-    const nuevos = cand.filter(c => !porId.has(c.id) && !descartadas.has(c.id));
+    console.log("[zona] candidatas:", cand.length);
+    if (!cand.length) {
+      const m = "No hay senderos con etiquetas MTB en esta zona.";
+      setEstado(m); toast(m);
+      return;
+    }
+    // Las bajadas que están en tu ruta se conservan tal cual; el resto se vuelve a evaluar.
+    // Las "descartadas" de otras sesiones también se reintentan.
+    const enRuta = new Set(miRuta.filter(id => !esPunto(id)));
+    const nuevos = cand.filter(c => !enRuta.has(c.id));
+    let hayDescartadas = false;
+    for (const c of nuevos) if (descartadas.delete(c.id)) hayDescartadas = true;
+    if (hayDescartadas) { try { localStorage.setItem(STORAGE_DESCARTADAS, JSON.stringify([...descartadas])); } catch (e) {} }
     if (!nuevos.length) {
-      setEstado(cand.length ? "Todas las bajadas de esta zona ya estaban cargadas." : "No hay senderos con etiquetas MTB en esta zona.");
+      const m = "Zona descargada: todas las bajadas ya están en tu ruta.";
+      setEstado(m); toast(m);
       return;
     }
     prog.set(`${nuevos.length} bajada${nuevos.length === 1 ? "" : "s"} encontrada${nuevos.length === 1 ? "" : "s"} · comprobando el sentido…`);
@@ -1057,21 +1093,24 @@ async function cargarZona() {
     for (const c of nuevos) {
       const ini = c.pts[0], fin = c.pts[c.pts.length - 1];
       const r = OSM.evaluar(c, Elev.ele(ini[0], ini[1]), Elev.ele(fin[0], fin[1]));
-      if (!r) { dudosas++; continue; }   // ante la duda, no se muestra
+      if (!r) { dudosas++; porId.delete(c.id); tramosPorId.delete(c.id); tiempoCarga.delete(c.id); continue; }   // ante la duda, no se muestra
       porId.set(c.id, r.feature); tramosPorId.set(c.id, r.tramos); tiempoCarga.set(c.id, Date.now()); validas++;
     }
     actualizarMapa();
     guardarBajadasLocal();
-    setEstado(validas
+    const msg = validas
       ? `${validas} bajada${validas === 1 ? "" : "s"} cargada${validas === 1 ? "" : "s"} · ${dudosas} descartada${dudosas === 1 ? "" : "s"} por sentido dudoso`
-      : `No hay bajadas nuevas con sentido fiable (${dudosas} descartada${dudosas === 1 ? "" : "s"} por sentido dudoso).`);
+      : `No hay bajadas con sentido fiable (${dudosas} descartada${dudosas === 1 ? "" : "s"} por sentido dudoso).`;
+    setEstado(msg);
+    toast(validas ? `✓ ${validas} bajada${validas === 1 ? "" : "s"} cargada${validas === 1 ? "" : "s"}` : "No hay bajadas con sentido fiable");
   } catch (e) {
-    console.error(e);
-    setEstado("Error: " + e.message);
+    console.error("[zona] error", e);
+    setEstado("Error: " + (e && e.message ? e.message : e));
+    toast("Error al descargar la zona");
   } finally {
-    prog.fin();
+    if (prog) prog.fin();
     cargandoZona = false;
-    btn.disabled = false; actualizarPasos();
+    btn.disabled = false;
   }
 }
 
