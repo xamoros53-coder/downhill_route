@@ -1,7 +1,7 @@
 {
-  "name": "Ride Planner Cabrils",
-  "short_name": "Ride Planner",
-  "description": "Planifica rutas de MTB en Cabrils",
+  "name": "MTB Ride Planner",
+  "short_name": "MTB Ride Planner",
+  "description": "Planifica rutas MTB, que bajadas hacemos hoy",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
