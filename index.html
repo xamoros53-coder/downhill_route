@@ -24,20 +24,6 @@
     width: 360px; background: var(--bg); border-left: 1px solid #e0e0e0;
     display: flex; flex-direction: column; overflow: hidden;
   }
-  #panel header { padding: 16px; background: #fff; border-bottom: 1px solid #e0e0e0; }
-  #panel h1 { font-size: 18px; margin: 0 0 4px; }
-  #panel .sub { font-size: 12px; color: #777; }
-  #filtros {
-    display: flex; gap: 6px; flex-wrap: wrap;
-    padding: 12px 16px; background: #fff; border-bottom: 1px solid #e0e0e0;
-  }
-  .chip {
-    border: 1px solid #ccc; background: #fff; border-radius: 999px;
-    padding: 4px 10px; font-size: 12px; cursor: pointer; user-select: none;
-  }
-  .chip.active { background: #2c3e50; color: #fff; border-color: #2c3e50; }
-  .chip .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
-  #lista { flex: 1; overflow-y: auto; padding: 8px; min-height: 120px; }
   .card {
     background: #fff; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px;
     cursor: pointer; border: 1px solid #e6e6e6; transition: border-color .15s;
@@ -123,7 +109,6 @@
   button, input, select { touch-action: manipulation; }
 
   /* ===== Panel "Mi ruta" (compacto; en móvil, hoja inferior plegable) ===== */
-  #panel > header, #filtros, #lista { display: none !important; }
   #panel {
     width: 340px; background: #f4f6f8; border-left: 1px solid #dfe4e8;
     display: flex; flex-direction: column; overflow: hidden;
@@ -131,16 +116,10 @@
   }
   #miRuta { flex: 1; min-height: 0; display: flex; flex-direction: column; background: #fff; box-shadow: -3px 0 18px rgba(20,35,50,.06); }
   #barraRuta { touch-action: none; position: relative; flex: none; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid #edf0f2; }
-  #barraRuta .grip { display: none; position: absolute; top: 7px; left: 50%; width: 44px; height: 5px; border-radius: 2px; background: #d3d9df; transform: translateX(-50%); pointer-events: none; }
   #btnPanelToggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 4px 0; text-align: left; cursor: pointer; font: inherit; color: #243746; }
   #btnPanelToggle { touch-action: none; }
-  #btnPanelToggle .chev { flex: none; display: flex; align-items: center; gap: 5px; height: 30px; padding: 0 11px; border-radius: 15px; background: #e8edf1; font-size: 12px; font-weight: 600; color: #243746; }
   #btnPanelToggle .flecha { display: inline-block; font-size: 10px; transition: transform .2s; }
   #miRuta.abierto #btnPanelToggle .flecha { transform: rotate(180deg); }
-  .barra-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
-  .barra-txt .t1 { font-size: 14px; font-weight: 700; }
-  .barra-txt .t1 span { font-weight: 500; color: #6b7280; margin-left: 4px; }
-  .barra-txt .tot { font-size: 12px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #btnGenerar { flex: none; min-height: 42px; padding: 0 16px; border: 0; border-radius: 10px; background: #2c3e50; color: #fff; font-size: 14px; font-weight: 650; cursor: pointer; }
   #btnGenerar:hover { background: #1a252f; }
   #btnGenerar:disabled { background: #b4bec3; cursor: not-allowed; }
@@ -149,19 +128,6 @@
 
   #detalleWrap { flex: 1; min-height: 0; display: flex; }
   #detalle { flex: 1; min-width: 0; overflow-y: auto; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
-  .puntoRuta { display: flex; align-items: center; gap: 6px; background: #f7f8fa; border: 1px solid #e6e9ed; border-radius: 10px; padding: 4px 4px 4px 10px; }
-  .puntoRuta .ico { flex: none; font-size: 12px; }
-  .puntoRuta .txt { flex: 1; min-width: 0; font: 12px ui-monospace, monospace; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .puntoRuta .txt.vacio { color: #8f99a1; font-family: inherit; }
-  .puntoRuta button { flex: none; width: 36px; height: 36px; padding: 0; border: 1px solid #d4dbe1; background: #fff; border-radius: 8px; font-size: 15px; cursor: pointer; }
-  .puntoRuta button:hover { border-color: #2c3e50; }
-  .puntoRuta button.armado { background: #ffd400; border-color: #d4b000; }
-  .puntoRuta button.x { color: #d62f2f; font-size: 18px; }
-  .fila-opc { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-  .fila-opc .check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #333; min-height: 32px; }
-  .fila-opc .check input { width: 18px; height: 18px; }
-  .fila-opc .tipo { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #555; }
-  .fila-opc select { height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid #ccd3d9; font-size: 13px; background: #fff; }
   .sec-titulo { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #6b7280; margin-bottom: -4px; }
   #miRutaLista { display: flex; flex-direction: column; gap: 6px; }
   #miRutaLista .vacio { width: 100%; color: #8a939b; font-size: 12px; padding: 4px 2px; }
@@ -178,8 +144,6 @@
   #miRutaLista .item.arrastrando { z-index: 3; transition: none; background: #fff; box-shadow: 0 4px 14px rgba(20,35,50,.25); }
   #miRutaLista .item .x { font-size: 18px; }
   #miRutaLista .item .x:hover { color: #d62f2f; background: #fff; }
-  .btnInter { min-height: 36px; border: 1px dashed #b9a3c9; background: #faf6fd; border-radius: 8px; font-size: 12px; color: #6a1b9a; cursor: pointer; }
-  .btnInter.armado { background: #ffd400; border: 1px solid #d4b000; color: #333; }
   #progresoZona { display: none; flex: none; height: 4px; background: #e6eaee; overflow: hidden; }
   #progresoZona.on { display: block; }
   #progresoZona i { display: block; height: 100%; width: 0; background: #2c7be5; transition: width .25s; }
@@ -187,17 +151,14 @@
   @keyframes progIndet { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
   #resumenRuta { font-size: 12px; color: #2c3e50; line-height: 1.5; background: #f7f8fa; border-radius: 10px; padding: 8px 10px; }
   #resumenRuta:empty { display: none; }
-  #resumenRuta .sw { display: inline-block; width: 14px; height: 4px; border-radius: 2px; vertical-align: middle; margin: 0 3px 1px 6px; }
   .acciones { display: flex; gap: 8px; }
   .acciones button { flex: 1; min-height: 36px; border: 1px solid #ccd3d9; background: #fff; border-radius: 8px; font-size: 12px; color: #444; cursor: pointer; }
   .acciones button:hover { border-color: #2c3e50; }
   .acciones button.peligro { color: #d62f2f; border-color: #e7b4b4; }
   .acciones button.peligro:hover { background: #d62f2f; border-color: #d62f2f; color: #fff; }
-  #btnDescargarGPX { display: none !important; }
 
   @media (min-width: 721px) {
     #btnPanelToggle { pointer-events: none; cursor: default; }
-    #btnPanelToggle .chev { display: none; }
   }
   @media (max-width: 720px) {
     #app { flex-direction: column; }
@@ -205,7 +166,6 @@
     #panel { width: 100%; flex: none; border-left: 0; border-top: 1px solid #dfe4e8; box-shadow: 0 -4px 16px rgba(20,35,50,.12); }
     #miRuta { flex: none; }
     #barraRuta { padding: 20px 12px 10px; }
-    #barraRuta .grip { display: block; }
     #detalleWrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .22s ease; }
     #miRuta.abierto #detalleWrap { grid-template-rows: 1fr; }
     #detalle { min-height: 0; overflow: hidden; padding: 0 12px; }
@@ -258,7 +218,7 @@
   .popup-add.in { background: #fff; color: var(--ink); border: 1px solid #c9d1cc; }
   .popup-add.in:hover { background: #f3f5f4; color: var(--ink); }
   #btnBuscarToggle { color: var(--brand); display: flex; align-items: center; justify-content: center; padding: 0; }
-  /* El contenedor de la búsqueda es ancho y transparente: no debe tapar el botón «Descargar esta zona» */
+  /* El contenedor de la búsqueda es ancho y transparente: no debe tapar el botón «Descargar bajadas» */
   #busquedaWrap { z-index: 10; pointer-events: none; }
   #btnBuscarToggle, #busquedaPanel { pointer-events: auto; }
   #busquedaInput:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(42,107,74,.15); }
@@ -282,11 +242,6 @@
   .stepper li.hecho { color: var(--ink); }
   .stepper li.hecho b { background: var(--brand-soft); color: var(--brand); }
   .stepper li.hecho::before, .stepper li.activo::before { background: var(--brand-line); }
-  #pasoAyuda { margin: 8px 2px 0; font-size: 12.5px; line-height: 1.35; color: #44524a; }
-  #zonaCuerpo { display: none; margin-top: 10px; }
-  #pasos.zona-abierta #zonaCuerpo { display: block; }
-  #zonaCuerpo .check { margin-top: 8px; align-items: flex-start; font-size: 13px; }
-  #zonaCuerpo .check input { margin-top: 2px; }
   .check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink); min-height: 32px; }
   .check input { width: 18px; height: 18px; flex: none; accent-color: var(--brand); }
   .check small { display: block; color: #6f7c75; font-size: 11.5px; line-height: 1.3; margin-top: 1px; }
@@ -299,11 +254,6 @@
   #ficha h3 { font-size: 14px; }
 
   /* Asas bien visibles */
-  #barraRuta .grip { width: 56px; height: 6px; border-radius: 3px; background: var(--brand); opacity: .55; top: 7px; }
-  #btnPanelToggle .chev { display: flex; background: var(--brand-soft); color: var(--brand); height: 32px; padding: 0 12px; border-radius: 16px; font-weight: 700; }
-  #btnPanelToggle .chev .t-cerrar { display: none; }
-  #miRuta.abierto #btnPanelToggle .chev .t-abrir { display: none; }
-  #miRuta.abierto #btnPanelToggle .chev .t-cerrar { display: inline; }
   #btnPanelToggle .flecha { font-size: 11px; margin-right: 6px; }
   #miRutaLista .item .asa { width: 36px; height: 36px; margin: 0 2px 0 -6px; border-radius: 10px; background: var(--brand-soft); color: var(--brand); border: 1px solid var(--brand-line); letter-spacing: 0; }
   #miRutaLista .item .asa svg { display: block; }
@@ -312,7 +262,6 @@
   #miRutaLista .item.arrastrando { background: #fff; }
 
   /* Ajustes y tipo de enrutamiento */
-  .ajustes { display: flex; flex-direction: column; gap: 6px; background: #f4f7f5; border: 1px solid #e0e8e3; border-radius: 12px; padding: 8px 12px 10px; }
   .tipo-fila { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
   .tipo-fila select { height: 38px; flex: 1; min-width: 130px; border-radius: 10px; border: 1px solid #c9d1cc; background: #fff; padding: 0 8px; font-size: 14px; }
   .btn-info { flex: none; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--brand); background: #fff; color: var(--brand); font: italic 700 13px/1 Georgia, serif; cursor: pointer; padding: 0; }
@@ -328,22 +277,25 @@
 
   @media (max-width: 720px) {
     #pasos { top: 10px; left: 62px; width: calc(100% - 72px); }
-    #btnPanelToggle .chev { display: flex; }
     #ficha { bottom: 10px; max-height: calc(100% - 215px); width: min(340px, calc(100% - 24px)); }
     #mapwrap.conPerfil #ficha { bottom: 162px; max-height: calc(100% - 370px); }
     #toast { bottom: 18px; }
   }
-  @media (min-width: 721px) { #btnPanelToggle .chev { display: none; } }
 
   /* ===== Ronda 2: zona arriba, pasos abajo, opciones en la barra ===== */
-  #mapwrap { --base: 0px; --pasosH: 74px; }
+  #mapwrap { --base: 0px; --pasosH: var(--pasosAlto, 74px); }
   #mapwrap.conPerfil { --base: 150px; }
   #mapwrap.pasosOff, #mapwrap.conFicha { --pasosH: 0px; }
   #mapwrap .maplibregl-ctrl-bottom-left, #mapwrap .maplibregl-ctrl-bottom-right { bottom: calc(var(--base) + var(--pasosH)) !important; }
-  #zonaBox { position: absolute; top: 12px; left: 66px; z-index: 9; width: min(300px, calc(100% - 130px)); display: flex; flex-direction: column; gap: 6px; }
-  #zonaBox #btnZona { box-shadow: 0 2px 12px rgba(0,0,0,.28); }
-  .zona-check { background: #fff; border-radius: 12px; padding: 6px 10px; min-height: 0; font-size: 12px; line-height: 1.25; box-shadow: 0 2px 10px rgba(0,0,0,.2); }
-  .zona-check input { width: 17px; height: 17px; }
+  #zonaBox { position: absolute; top: 12px; left: 66px; z-index: 9; width: min(300px, calc(100% - 130px)); display: flex; flex-direction: column; gap: 0; background: #fff; border-radius: 16px; padding: 8px; box-shadow: 0 2px 14px rgba(0,0,0,.24); }
+  #zonaBox #btnZona { box-shadow: none; }
+  .zona-opcion { display: flex; align-items: flex-start; gap: 10px; margin-top: 8px; padding: 8px 8px 8px 10px; border-radius: 10px; background: var(--brand-soft); cursor: pointer; touch-action: manipulation; }
+  .zona-opcion input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--brand); cursor: pointer; }
+  .zona-opcion .txt { flex: 1; min-width: 0; font-size: 13px; line-height: 1.25; color: var(--ink); }
+  .zona-opcion .txt b { display: block; font-weight: 650; }
+  .zona-opcion .txt small { display: block; margin-top: 2px; font-size: 11.5px; line-height: 1.3; color: #5b6b62; }
+  .zona-opcion:has(input:checked) { background: #d4ead9; box-shadow: inset 0 0 0 1.5px var(--brand); }
+  .zona-opcion:has(input:focus-visible) { outline: 2px solid var(--brand); outline-offset: 2px; }
   #pasos { top: auto !important; left: 10px !important; right: 10px; width: auto !important; max-width: 440px; bottom: calc(var(--base) + 8px); padding: 10px 28px 8px 10px; }
   #mapwrap.pasosOff #pasos, #mapwrap.conFicha #pasos { display: none; }
   #pasosCerrar { position: absolute; top: 4px; right: 5px; width: 26px; height: 26px; border: 0; background: none; color: #7a8780; font-size: 20px; line-height: 1; cursor: pointer; padding: 0; }
@@ -354,7 +306,6 @@
   #toast { bottom: calc(var(--base) + var(--pasosH) + 12px) !important; }
 
   #barraRuta { flex-wrap: wrap; gap: 8px 10px; padding: 4px 12px 10px !important; align-items: center; }
-  #barraRuta .grip { display: none !important; }
   #btnPanelToggle { flex: 0 0 100%; flex-direction: column; justify-content: center; align-items: center; gap: 1px; height: 30px; padding: 2px 0; }
   #btnPanelToggle .pill { display: block; width: 56px; height: 6px; border-radius: 3px; background: var(--brand); opacity: .6; }
   #btnPanelToggle .flecha { color: var(--brand); font-size: 11px; line-height: 1; }
@@ -369,6 +320,16 @@
     #zonaBox { top: 10px; left: 62px; }
     #mapwrap #ficha { max-height: calc(100% - var(--base) - 140px) !important; }
   }
+
+  /* ===== Ronda 3: stepper guiado + aviso de «añadido» ===== */
+  #pasoInfo b { color: var(--brand); }
+  .stepper li.hecho b { font-size: 13px; }
+  #miRutaLista .item.nuevo { animation: itemNuevo 1.8s ease-out; }
+  @keyframes itemNuevo {
+    0%   { background: #cfe8d6; box-shadow: 0 0 0 3px rgba(42,107,74,.35); }
+    100% { background: #f4f7f5; box-shadow: 0 0 0 0 rgba(42,107,74,0); }
+  }
+  @media (prefers-reduced-motion: reduce) { #miRutaLista .item.nuevo { animation: none; background: #cfe8d6; } }
 </style>
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="64x64" href="./icons/favicon-64.png">
@@ -389,14 +350,17 @@
       </div>
     </div>
     <div id="zonaBox">
-      <button id="btnZona" type="button">Descargar esta zona</button>
-      <label class="check zona-check" for="modoAmplio" title="Añade más senderos abiertos a la bici que no llevan etiqueta MTB. Pueden no ser de bajada. Zona máx. 120 km²"><input type="checkbox" id="modoAmplio" /><span>Incluir senderos sin etiqueta MTB</span></label>
+      <button id="btnZona" type="button">Descargar bajadas</button>
+      <label class="zona-opcion" for="modoAmplio" title="Añade más senderos abiertos a la bici que no llevan etiqueta MTB. Pueden no ser de bajada. Zona máx. 120 km²">
+        <input type="checkbox" id="modoAmplio" />
+        <span class="txt"><b>Incluir senderos sin etiqueta MTB</b><small id="modoAmplioHint"></small></span>
+      </label>
     </div>
     <div id="pasos">
       <button id="pasosCerrar" type="button" aria-label="Ocultar pasos" title="Ocultar">×</button>
       <ol class="stepper">
-        <li data-p="1"><b>1</b><span>Descargar zona</span></li>
-        <li data-p="2"><b>2</b><span>Elegir bajadas</span></li>
+        <li data-p="1"><b>1</b><span>Descargar bajadas</span></li>
+        <li data-p="2"><b>2</b><span>Elegir bajadas y puntos</span></li>
         <li data-p="3"><b>3</b><span>Generar ruta</span></li>
       </ol>
       <div id="pasoInfo" hidden></div>
@@ -435,7 +399,6 @@
             <dt>Gravel</dt><dd>Pistas y caminos firmes. Más rodador, evita senderos técnicos.</dd>
           </dl>
         </div>
-        <div hidden><span id="miRutaContador"></span><span id="miRutaTotales"></span></div>
       </div>
       <div id="estadoRuta"></div>
       <div id="progresoZona"><i></i></div>
@@ -444,7 +407,6 @@
           <div class="sec-titulo">Tus bajadas · arrastra <svg class="ico-asa" width="14" height="16" viewBox="0 0 14 16" fill="currentColor"><circle cx="4" cy="3" r="1.6"/><circle cx="10" cy="3" r="1.6"/><circle cx="4" cy="8" r="1.6"/><circle cx="10" cy="8" r="1.6"/><circle cx="4" cy="13" r="1.6"/><circle cx="10" cy="13" r="1.6"/></svg> para ordenar</div>
           <div id="miRutaLista"></div>
           <div id="resumenRuta"></div>
-          <button id="btnDescargarGPX" disabled style="display:none">Descargar GPX</button>
           <div class="acciones">
             <button id="btnBorrarTodo" type="button" class="peligro" title="Quita las bajadas, los puntos y la ruta generada">Limpiar ruta</button>
           </div>
@@ -452,7 +414,7 @@
             <summary>⚙ Configuración</summary>
             <div class="cfg-fila">
               <div class="txt">Caché de bajadas<small id="cfgInfo">…</small></div>
-              <button id="cfgLimpiar" type="button" title="Borra la caché de bajadas (se conservan las de tu ruta). Podrás volver a descargarlas con «Descargar esta zona»">Vaciar caché</button>
+              <button id="cfgLimpiar" type="button" title="Borra la caché de bajadas (se conservan las de tu ruta). Podrás volver a descargarlas con «Descargar bajadas»">Vaciar caché</button>
             </div>
           </details>
         </div>
@@ -558,8 +520,6 @@ function esPunto(id) { return typeof id === "string" && id.startsWith("wp:"); }
 let puntoInicio = null;
 let puntoFin = null;
 let modoMarcar = null;
-let markerInicio = null;
-let markerFin = null;
 let rutaGenerada = null;   // { gpx, segmentos, stats } de la última ruta calculada
 let perfilDatos = null, perfilGeom = null, markerPerfil = null;
 let perfilPuntos = [];   // puntos elegidos sobre el perfil: { d, n, nombre }
@@ -594,6 +554,28 @@ barraRutaEl.addEventListener("click", (e) => {                       // toque en
   if (huboArrastre) { huboArrastre = false; return; }
   setPanel(!miRutaEl.classList.contains("abierto"));
 });
+
+// Al añadir una bajada o un punto: se resalta en la lista y, en móvil, el panel inferior sube un momento para enseñarla
+const PEEK_MS = 3000;       // cuánto tiempo se queda abierto el panel en móvil si el usuario no lo toca
+let peekT = null, peekActivo = false;
+function mostrarAnadido(id) {
+  const movil = window.matchMedia("(max-width: 720px)").matches;
+  const alAbrir = movil && !miRutaEl.classList.contains("abierto");
+  if (movil) setPanel(true);
+  setTimeout(() => {
+    const el = [...document.querySelectorAll("#miRutaLista .item")].find(x => x.dataset.id === id);
+    if (!el) return;
+    el.classList.remove("nuevo"); void el.offsetWidth; el.classList.add("nuevo");
+    el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    setTimeout(() => el.classList.remove("nuevo"), 1900);
+  }, movil ? 260 : 0);
+  if (movil && (alAbrir || peekActivo)) {
+    peekActivo = true; clearTimeout(peekT);
+    peekT = setTimeout(() => { peekActivo = false; setPanel(false); }, PEEK_MS);
+  }
+}
+// Si el usuario toca el panel mientras está abierto por el aviso, se queda abierto
+document.getElementById("panel").addEventListener("pointerdown", () => { clearTimeout(peekT); peekActivo = false; });
 
 function cargarMiRutaGuardado() {
   try {
@@ -653,7 +635,7 @@ async function toggleRuta(id) {
     anadida = true;
   }
   guardarMiRuta(); renderMiRuta(); actualizarBotonesRuta(); actualizarPopupBoton(); actualizarBotonGenerar();
-  if (anadida) { deseleccionar(); const nb = miRuta.filter(x => !esPunto(x)).length; toast(`✓ Añadida · ${nb} bajada${nb === 1 ? "" : "s"} en tu ruta`); }
+  if (anadida) { deseleccionar(); const nb = miRuta.filter(x => !esPunto(x)).length; toast(`✓ Añadida · ${nb} bajada${nb === 1 ? "" : "s"} en tu ruta`); mostrarAnadido(id); }
 }
 
 // Ordenar la lista arrastrando el asa ⋮⋮ (ratón o dedo)
@@ -706,13 +688,6 @@ function arrastrarItem(ev, asa, cont, el, i) {
   asa.addEventListener("pointercancel", suelta);
 }
 
-function moverEnRuta(i, dir) {
-  const j = i + dir;
-  if (j < 0 || j >= miRuta.length) return;
-  [miRuta[i], miRuta[j]] = [miRuta[j], miRuta[i]];
-  guardarMiRuta(); renderMiRuta();
-}
-
 function actualizarMarcadoresInter() {
   markersInter.forEach(m => m.remove()); markersInter = [];
   let n = 0;
@@ -730,21 +705,19 @@ function actualizarMarcadoresInter() {
 function renderMiRuta() {
   const cont = document.getElementById("miRutaLista");
   cont.innerHTML = "";
-  let longTotal = 0, caidaTotal = 0, nBaj = 0, nPun = 0;
+  let nPun = 0;
   if (miRuta.length === 0) {
-    const v = document.createElement("div"); v.className = "vacio"; v.textContent = "Aún no hay bajadas. Descarga una zona, toca una bajada en el mapa y pulsa «Añadir a mi ruta»."; cont.appendChild(v);
+    const v = document.createElement("div"); v.className = "vacio"; v.textContent = "Aún no hay nada en tu ruta. Descarga las bajadas, toca una en el mapa y pulsa «Añadir a mi ruta». También puedes añadir puntos tocando un hueco del mapa."; cont.appendChild(v);
   } else {
     miRuta.forEach((id, i) => {
       const esP = esPunto(id);
       const f = esP ? null : porId.get(id);
       if (!esP && !f) return;
-      const el = document.createElement("div"); el.className = "item" + (esP ? " punto-inter" : "");
+      const el = document.createElement("div"); el.className = "item" + (esP ? " punto-inter" : ""); el.dataset.id = id;
       let marca, nombre;
       if (esP) { nPun++; marca = `<span class="pin">📍</span>`; const pt = puntosInter.get(id); nombre = (pt && pt[2]) ? pt[2] : `Punto ${nPun}`; }
       else {
-        nBaj++;
         const p = f.properties;
-        longTotal += p.longitud_m || 0; caidaTotal += p.caida_m || 0;
         marca = `<span class="punto" style="background:${colorDe(p)}"></span>`; nombre = p.nombre || "(sin nombre)";
       }
       el.innerHTML = `<span class="asa" title="Arrastra para ordenar" aria-label="Arrastrar para ordenar"><svg width="14" height="16" viewBox="0 0 14 16" fill="currentColor"><circle cx="4" cy="3" r="1.6"/><circle cx="10" cy="3" r="1.6"/><circle cx="4" cy="8" r="1.6"/><circle cx="10" cy="8" r="1.6"/><circle cx="4" cy="13" r="1.6"/><circle cx="10" cy="13" r="1.6"/></svg></span><span class="num">${i + 1}</span>${marca}<span class="nom">${esc(nombre)}</span>`
@@ -761,9 +734,6 @@ function renderMiRuta() {
       cont.appendChild(el);
     });
   }
-  document.getElementById("miRutaContador").textContent = `${nBaj} bajada${nBaj === 1 ? "" : "s"}`;
-  document.getElementById("miRutaTotales").textContent = nBaj === 0 ? (nPun ? `${nPun} punto${nPun === 1 ? "" : "s"} intermedio${nPun === 1 ? "" : "s"}` : "Sin bajadas todavía")
-    : `${fmtLong(Math.round(longTotal))} de bajada · ↓${Math.round(caidaTotal)} m` + (nPun ? ` · ${nPun} punto${nPun === 1 ? "" : "s"}` : "");
   actualizarMarcadoresInter();
   actualizarContornoRuta();
   actualizarPasos();
@@ -829,6 +799,7 @@ map.on("click", (e) => {
     puntosInter.set(id, nombre ? [lat, lon, nombre] : [lat, lon]); miRuta.push(id);
     guardarMiRuta(); renderMiRuta(); actualizarBotonGenerar();
     cerrarPopupPunto();
+    toast("📍 Punto añadido a tu ruta"); mostrarAnadido(id);
   });
   popupPunto = new maplibregl.Popup({ closeButton: true, maxWidth: "260px" }).setLngLat([lon, lat]).setDOMContent(cont).addTo(map);
   popupPunto.on("close", () => { popupPunto = null; });
@@ -855,24 +826,43 @@ function toast(msg) {
   clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("on"), 2200);
 }
 const PASOS_INFO = {
-  1: "Descargar zona: acerca el mapa a la zona donde vas a rodar y pulsa «Descargar esta zona» (botón de arriba). Marca la casilla si quieres incluir senderos sin etiqueta MTB.",
-  2: "Elegir bajadas: toca una bajada en el mapa, mira su ficha y pulsa «Añadir a mi ruta». Puedes añadir varias y ordenarlas en el panel de abajo.",
-  3: "Generar ruta: elige ruta circular y el modo de enrutamiento, y pulsa «Generar ruta». Cuando esté lista, descarga el GPX."
+  1: "<b>Descargar bajadas:</b> acerca el mapa a la zona donde vas a rodar y pulsa «Descargar bajadas» (botón de arriba). Si quieres incluir senderos sin etiqueta MTB, marca la casilla antes de pulsar.",
+  2: "<b>Elegir bajadas y puntos:</b> toca una bajada en el mapa y pulsa «Añadir a mi ruta». Para marcar un punto de inicio o intermedio, toca un hueco del mapa y pulsa «Añadir punto». El orden de la lista es el orden de la ruta; puedes reordenarla en el panel de abajo.",
+  3: "<b>Generar ruta:</b> elige ruta circular y el modo de enrutamiento, y pulsa «Generar ruta» en el panel de abajo."
 };
-let pasoInfo = null;
+const PASO3_LISTA = "<b>Ruta lista:</b> revísala en el mapa y pulsa «Descargar GPX» en el panel de abajo.";
+// Paso en el que está el usuario: 1 = sin bajadas descargadas, 2 = descargadas, 3 = ya hay algo en la ruta
+function pasoActual() {
+  if (rutaGenerada || miRuta.length) return 3;
+  if (porId.size) return 2;
+  return 1;
+}
+let pasoManual = null;      // paso que el usuario ha tocado para leerlo (null = sigue el paso actual)
+let ultimoPasoAuto = 0;
 function actualizarPasos() {
-  // Panel puramente informativo: ningún paso se resalta según el estado de la app.
-  // Solo se muestra el texto del paso que el usuario toque.
+  const cur = pasoActual();
+  if (cur !== ultimoPasoAuto) { ultimoPasoAuto = cur; pasoManual = null; }   // al avanzar, vuelve a mostrar el paso actual
   document.querySelectorAll("#pasos .stepper li").forEach(li => {
-    li.classList.remove("activo", "hecho");
+    const n = +li.dataset.p, hecho = n < cur, activo = n === cur;
+    li.classList.toggle("hecho", hecho);
+    li.classList.toggle("activo", activo);
+    const b = li.querySelector("b"); if (b) b.textContent = hecho ? "✓" : String(n);
   });
+  const mostrar = pasoManual || cur;
   const inf = document.getElementById("pasoInfo");
-  inf.hidden = !pasoInfo; if (pasoInfo) inf.textContent = PASOS_INFO[pasoInfo];
+  inf.hidden = false;
+  inf.innerHTML = (mostrar === 3 && rutaGenerada) ? PASO3_LISTA : PASOS_INFO[mostrar];
 }
 document.querySelector("#pasos .stepper").addEventListener("click", (e) => {
   const li = e.target.closest("li"); if (!li) return;
-  const n = +li.dataset.p; pasoInfo = pasoInfo === n ? null : n; actualizarPasos();
+  const n = +li.dataset.p; pasoManual = (n === pasoActual() || pasoManual === n) ? null : n; actualizarPasos();
 });
+// La altura de la tarjeta de pasos desplaza los controles del mapa (escala, ficha, aviso): se mide para que no se solapen
+(function () {
+  const pasos = document.getElementById("pasos"), mw = document.getElementById("mapwrap");
+  if (!pasos || typeof ResizeObserver === "undefined") return;
+  new ResizeObserver(() => { const h = pasos.offsetHeight; if (h > 0) mw.style.setProperty("--pasosAlto", (h + 8) + "px"); }).observe(pasos);
+})();
 const mapwrapEl = document.getElementById("mapwrap");
 try { if (localStorage.getItem("pasosOff") === "1") mapwrapEl.classList.add("pasosOff"); } catch (e) {}
 function ponerPasosOff(off) {
@@ -892,7 +882,6 @@ const idDe = f => f.properties.id;
 const catDe = p => p.dificultad_color || "sin";
 const colorDe = p => COLORES[catDe(p)];
 function fmtLong(m) { return m >= 1000 ? (m / 1000).toFixed(2).replace(".", ",") + " km" : m + " m"; }
-async function fetchJson(url) { const r = await fetch(url); if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`); return r.json(); }
 function badgeFiab(p) { return p.fiabilidad === "osm" ? `<span class="badge osm">OSM</span>` : `<span class="badge det">detectada</span>`; }
 
 function setEstado(msg) { document.getElementById("estadoRuta").textContent = msg || ""; }
@@ -980,8 +969,8 @@ map.on("load", async () => {
     actualizarMapa(); actualizarContornoRuta();
     if (features.length) {
       ajustarVista();
-      if (nLocal) setEstado(`${nLocal} bajada${nLocal === 1 ? "" : "s"} recuperada${nLocal === 1 ? "" : "s"} de la caché. Pulsa «Descargar esta zona» para añadir más.`);
-    } else setEstado("Acerca el mapa a tu zona y pulsa «Descargar esta zona».");
+      if (nLocal) setEstado(`${nLocal} bajada${nLocal === 1 ? "" : "s"} recuperada${nLocal === 1 ? "" : "s"} de la caché. Pulsa «Descargar bajadas» para añadir más.`);
+    } else setEstado("Acerca el mapa a tu zona y pulsa «Descargar bajadas».");
     try { geolocate.trigger(); } catch (e) {}   // al abrir, centra el mapa en tu posición (si das permiso)
   } catch (e) {
     cargaLocalTerminada = true;
@@ -1034,9 +1023,23 @@ function iniciarProgreso(btn) {
 document.addEventListener("click", (e) => {
   const b = e.target && e.target.closest ? e.target.closest("#btnZona") : null;
   if (!b) return;
-  console.log("[zona] click en «Descargar esta zona»");
+  console.log("[zona] click en «Descargar bajadas»");
   cargarZona();
 }, true);
+
+// Opción de descarga: la pista de debajo del check explica qué hará la próxima descarga
+(function () {
+  const chk = document.getElementById("modoAmplio"), hint = document.getElementById("modoAmplioHint");
+  if (!chk || !hint) return;
+  const pinta = () => { hint.textContent = chk.checked
+    ? "Más resultados, aunque algunos pueden no ser bajadas. La descarga tarda más."
+    : "Ahora solo se descargan las bajadas etiquetadas como MTB."; };
+  chk.addEventListener("change", () => {
+    pinta();
+    toast(chk.checked ? "Opción activada: pulsa «Descargar bajadas» para aplicarla" : "Opción desactivada: pulsa «Descargar bajadas» para aplicarla");
+  });
+  pinta();
+})();
 
 let cargandoDesde = 0;
 async function cargarZona() {
@@ -1559,15 +1562,6 @@ function dibujarRuta(segmentos) {
   if (!bnd.isEmpty()) map.fitBounds(bnd, { padding: 70, duration: 600 });
 }
 
-function mostrarResumenRuta(st) {
-  const km = m => fmtLong(Math.round(m));
-  let t = `<strong>${km(st.distM)}</strong>`;
-  if (st.sube !== null) t += ` · ↑${st.sube} m ↓${st.baja} m`;
-  if (st.distBajadasM > 0) t += `<br>Bajadas ${km(st.distBajadasM)} (contorno morado) · <span class="sw" style="background:${COLOR_RUTA};margin-left:0"></span>enlaces ${km(st.distEnlacesM)}`;
-  t += `<br>Las flechas ➤ marcan el sentido.`;
-  document.getElementById("resumenRuta").innerHTML = t;
-}
-
 // ---- Perfil de altimetría ----
 function construirPerfil(segmentos) {
   const pts = [];
@@ -1802,7 +1796,6 @@ function invalidarRuta() {
   const srcSalto = map.getSource("ruta-salto");
   if (srcSalto) srcSalto.setData({ type: "FeatureCollection", features: [] });
   document.getElementById("resumenRuta").innerHTML = "";
-  document.getElementById("btnDescargarGPX").disabled = true;
   document.getElementById("btnGenerar").textContent = "Generar ruta";
   ocultarPerfil(); actualizarPasos();
   if (hab) document.getElementById("estadoRuta").textContent = "";
@@ -1842,7 +1835,6 @@ document.getElementById("btnGenerar").addEventListener("click", async () => {
     r.segmentos.forEach(sg => { sg.color = sg.tipo === "bajada" ? colorDe(soloBajadas[bi++].properties) : COLOR_RUTA; });
     dibujarRuta(r.segmentos);
     mostrarPerfil(r.segmentos, r.stats, seleccion.filter(x => x.punto));
-    document.getElementById("btnDescargarGPX").disabled = false;
     document.getElementById("btnGenerar").textContent = "Descargar GPX";
     const sinEvitar = r.segmentos.filter(sg => sg.tipo === "enlace" && sg.conNogo === false).length;
     estado.textContent = "Ruta lista. Revísala en el mapa y descarga el GPX."
@@ -1865,7 +1857,6 @@ function descargarRuta() {
   window.descargarGPX(rutaGenerada.gpx, `ruta-${hoy.getFullYear()}-${z(hoy.getMonth() + 1)}-${z(hoy.getDate())}.gpx`);
   document.getElementById("estadoRuta").textContent = "GPX descargado ✓";
 }
-document.getElementById("btnDescargarGPX").addEventListener("click", descargarRuta);
 
 document.getElementById("btnBorrarTodo").addEventListener("click", () => {
   if (miRuta.length === 0 && !puntoInicio && !puntoFin && !rutaGenerada) return;
@@ -1904,7 +1895,7 @@ cfgEl.addEventListener("toggle", () => { if (cfgEl.open) actualizarConfig(); });
 document.getElementById("cfgLimpiar").addEventListener("click", async () => {
   if (cargandoZona) { setEstado("Espera a que termine la carga de la zona para limpiar."); return; }
   const enRuta = new Set(miRuta.filter(id => !esPunto(id)));
-  if (!confirm("¿Vaciar la caché de bajadas?" + (enRuta.size ? ` Se conservan las ${enRuta.size} de tu ruta.` : "") + " Podrás volver a descargarlas con «Descargar esta zona».")) return;
+  if (!confirm("¿Vaciar la caché de bajadas?" + (enRuta.size ? ` Se conservan las ${enRuta.size} de tu ruta.` : "") + " Podrás volver a descargarlas con «Descargar bajadas».")) return;
   let n = 0;
   for (const id of [...porId.keys()]) {
     if (enRuta.has(id)) continue;
@@ -1916,7 +1907,7 @@ document.getElementById("cfgLimpiar").addEventListener("click", async () => {
   actualizarMapa();
   await volcarBajadasLocal();
   await OSM.cacheLimpiar();
-  setEstado(`${n} bajada${n === 1 ? "" : "s"} borrada${n === 1 ? "" : "s"} de la caché. Acerca el mapa y pulsa «Descargar esta zona» para volver a descargar.`);
+  setEstado(`${n} bajada${n === 1 ? "" : "s"} borrada${n === 1 ? "" : "s"} de la caché. Acerca el mapa y pulsa «Descargar bajadas» para volver a descargar.`);
   actualizarConfig();
 });
 </script>
