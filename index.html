@@ -287,15 +287,14 @@
   #mapwrap.conPerfil { --base: 150px; }
   #mapwrap.pasosOff, #mapwrap.conFicha { --pasosH: 0px; }
   #mapwrap .maplibregl-ctrl-bottom-left, #mapwrap .maplibregl-ctrl-bottom-right { bottom: calc(var(--base) + var(--pasosH)) !important; }
-  #zonaBox { position: absolute; top: 12px; left: 66px; z-index: 9; width: min(300px, calc(100% - 130px)); display: flex; flex-direction: column; gap: 0; background: #fff; border-radius: 16px; padding: 8px; box-shadow: 0 2px 14px rgba(0,0,0,.24); }
-  #zonaBox #btnZona { box-shadow: none; }
-  .zona-opcion { display: flex; align-items: flex-start; gap: 10px; margin-top: 8px; padding: 8px 8px 8px 10px; border-radius: 10px; background: var(--brand-soft); cursor: pointer; touch-action: manipulation; }
-  .zona-opcion input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--brand); cursor: pointer; }
-  .zona-opcion .txt { flex: 1; min-width: 0; font-size: 13px; line-height: 1.25; color: var(--ink); }
-  .zona-opcion .txt b { display: block; font-weight: 650; }
-  .zona-opcion .txt small { display: block; margin-top: 2px; font-size: 11.5px; line-height: 1.3; color: #5b6b62; }
+  #zonaBox { position: absolute; top: 12px; left: 66px; z-index: 9; width: min(272px, calc(100% - 130px)); display: flex; flex-direction: column; gap: 0; background: #fff; border-radius: 14px; padding: 6px; box-shadow: 0 2px 12px rgba(0,0,0,.24); }
+  #zonaBox #btnZona { box-shadow: none; height: 36px; padding: 0 12px; font-size: 14px; border-radius: 10px; }
+  .zona-opcion { display: flex; align-items: center; gap: 8px; margin-top: 5px; padding: 5px 8px; border-radius: 9px; background: var(--brand-soft); cursor: pointer; touch-action: manipulation; font-size: 12.5px; line-height: 1.2; color: var(--ink); white-space: nowrap; }
+  .zona-opcion input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--brand); cursor: pointer; }
+  .zona-opcion span { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
   .zona-opcion:has(input:checked) { background: #d4ead9; box-shadow: inset 0 0 0 1.5px var(--brand); }
   .zona-opcion:has(input:focus-visible) { outline: 2px solid var(--brand); outline-offset: 2px; }
+  @media (max-width: 720px) { #zonaBox { width: min(272px, calc(100% - 114px)); } .zona-opcion { font-size: 11.5px; gap: 6px; padding: 5px 6px; } }
   #pasos { top: auto !important; left: 10px !important; right: 10px; width: auto !important; max-width: 440px; bottom: calc(var(--base) + 8px); padding: 10px 28px 8px 10px; }
   #mapwrap.pasosOff #pasos, #mapwrap.conFicha #pasos { display: none; }
   #pasosCerrar { position: absolute; top: 4px; right: 5px; width: 26px; height: 26px; border: 0; background: none; color: #7a8780; font-size: 20px; line-height: 1; cursor: pointer; padding: 0; }
@@ -330,6 +329,30 @@
     100% { background: #f4f7f5; box-shadow: 0 0 0 0 rgba(42,107,74,0); }
   }
   @media (prefers-reduced-motion: reduce) { #miRutaLista .item.nuevo { animation: none; background: #cfe8d6; } }
+
+  /* ===== Ronda 4: asa del panel, desplegable y cierres más visibles ===== */
+  #btnPanelToggle { height: 38px; background: var(--brand-soft); border-radius: 12px; gap: 3px; }
+  #btnPanelToggle .pill { width: 64px; height: 6px; border-radius: 3px; background: var(--brand); opacity: 1; }
+  #btnPanelToggle .flecha { font-size: 15px; font-weight: 900; color: var(--brand); }
+  #btnPanelToggle:active { background: var(--brand-line); }
+  .tipo-fila select, .ctl-ruta .tipo-fila select {
+    -webkit-appearance: none; appearance: none; cursor: pointer;
+    border: 1.5px solid var(--brand); background-color: var(--brand-soft); color: var(--ink); font-weight: 650;
+    padding: 0 36px 0 12px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%232a6b4a' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'><path d='M5 9l7 7 7-7'/></svg>");
+    background-repeat: no-repeat; background-position: right 11px center; background-size: 16px;
+  }
+  .tipo-fila select:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  #ficha .cerrar, #ficha .cerrar:hover { width: 32px; height: 32px; top: 6px; right: 6px; padding: 0; border-radius: 50%; background: #e9eeea; color: var(--ink); font-size: 22px; display: flex; align-items: center; justify-content: center; }
+  #ficha .cerrar:hover { background: #d62f2f; color: #fff; }
+  #ficha h3 { margin-right: 40px; }
+  #ficha .ficha-resumen { margin-right: 40px; }
+  .maplibregl-popup-close-button { width: 32px; height: 32px; top: 6px; right: 6px; padding: 0; border-radius: 50%; background: #e9eeea; color: var(--ink); font-size: 22px; line-height: 1; }
+  .maplibregl-popup-close-button:hover { background: #d62f2f; color: #fff; }
+  .maplibregl-popup-content h3 { padding-right: 30px; }
+  #perfilAlt .cab button { width: 28px; height: 24px; border-radius: 12px; background: #e9eeea; color: var(--ink); font-size: 18px; }
+  #perfilAlt .cab button:hover { background: #d62f2f; color: #fff; }
+  #pasosCerrar { width: 30px; height: 30px; top: 3px; right: 3px; color: var(--ink); font-size: 22px; }
 </style>
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="64x64" href="./icons/favicon-64.png">
@@ -352,8 +375,7 @@
     <div id="zonaBox">
       <button id="btnZona" type="button">Descargar bajadas</button>
       <label class="zona-opcion" for="modoAmplio" title="Añade más senderos abiertos a la bici que no llevan etiqueta MTB. Pueden no ser de bajada. Zona máx. 120 km²">
-        <input type="checkbox" id="modoAmplio" />
-        <span class="txt"><b>Incluir senderos sin etiqueta MTB</b><small id="modoAmplioHint"></small></span>
+        <input type="checkbox" id="modoAmplio" /><span>Incluir senderos sin etiqueta MTB</span>
       </label>
     </div>
     <div id="pasos">
@@ -1027,18 +1049,13 @@ document.addEventListener("click", (e) => {
   cargarZona();
 }, true);
 
-// Opción de descarga: la pista de debajo del check explica qué hará la próxima descarga
+// Opción de descarga: al cambiarla se avisa de que hay que volver a descargar para aplicarla
 (function () {
-  const chk = document.getElementById("modoAmplio"), hint = document.getElementById("modoAmplioHint");
-  if (!chk || !hint) return;
-  const pinta = () => { hint.textContent = chk.checked
-    ? "Más resultados, aunque algunos pueden no ser bajadas. La descarga tarda más."
-    : "Ahora solo se descargan las bajadas etiquetadas como MTB."; };
+  const chk = document.getElementById("modoAmplio");
+  if (!chk) return;
   chk.addEventListener("change", () => {
-    pinta();
     toast(chk.checked ? "Opción activada: pulsa «Descargar bajadas» para aplicarla" : "Opción desactivada: pulsa «Descargar bajadas» para aplicarla");
   });
-  pinta();
 })();
 
 let cargandoDesde = 0;
