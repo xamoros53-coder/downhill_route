@@ -626,6 +626,52 @@ function ponerBase(sat) {
   try { localStorage.setItem("baseMapa", sat ? "sat" : "osm"); } catch (e) {}
 }
 map.addControl(baseControl, "top-right");
+
+// Botón 3D: activa el relieve (terreno) e inclina el mapa. Elevación: AWS Terrain Tiles (gratuito, sin clave)
+let en3D = false;
+class Mapa3DControl {
+  onAdd() {
+    this._c = document.createElement("div");
+    this._c.className = "maplibregl-ctrl maplibregl-ctrl-group";
+    this._b = document.createElement("button");
+    this._b.type = "button"; this._b.className = "ctrl-base ctrl-3d";
+    this._b.textContent = "3D";
+    this._b.addEventListener("click", () => poner3D(!en3D));
+    this._c.appendChild(this._b);
+    this.refrescar();
+    return this._c;
+  }
+  onRemove() { this._c.remove(); }
+  refrescar() {
+    const t = en3D ? "Desactivar vista 3D" : "Activar vista 3D";
+    this._b.title = t; this._b.setAttribute("aria-label", t);
+    this._b.style.fontWeight = en3D ? "700" : "400";
+    this._b.style.color = en3D ? "#1f6fd1" : "";
+  }
+}
+const control3D = new Mapa3DControl();
+function poner3D(on) {
+  en3D = on;
+  try {
+    if (on) {
+      if (!map.getSource("dem")) {
+        map.addSource("dem", {
+          type: "raster-dem",
+          tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"],
+          encoding: "terrarium", tileSize: 256, maxzoom: 15,
+          attribution: "Relieve: Mapzen / AWS Terrain Tiles"
+        });
+      }
+      map.setTerrain({ source: "dem", exaggeration: 1.3 });
+      map.easeTo({ pitch: 60, duration: 800 });
+    } else {
+      map.setTerrain(null);
+      map.easeTo({ pitch: 0, bearing: 0, duration: 800 });
+    }
+  } catch (e) { en3D = false; setEstado("No se pudo activar la vista 3D."); }
+  control3D.refrescar();
+}
+map.addControl(control3D, "top-right");
 map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-right");
 
 let features = [];                 // bajadas cargadas (se rehace en actualizarMapa)
