@@ -478,7 +478,7 @@ if (window.caches) caches.keys().then(ks => ks.forEach(k => { console.log("[app]
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="osm.js"></script>
 <script src="elevacion.js"></script>
-<script src="ruta.js"></script>
+<script src="ruta.js?v=opt1"></script>
 <script>
 const COLORES = { verde: "#2e9e4f", azul: "#1f6fd1", rojo: "#d62f2f", negro: "#1a1a1a", sin: "#9e9e9e" };
 const CATS = ["verde", "azul", "rojo", "negro", "sin"];
@@ -1960,13 +1960,15 @@ document.getElementById("btnGenerar").addEventListener("click", async () => {
     if (version !== versionRuta) { estado.textContent = "La selección cambió mientras se calculaba. Vuelve a generar."; return; }
     const saltos = buscarSaltos(r.segmentos);
     if (saltos.length) { avisarSaltos(saltos); return; }   // red de seguridad: no se da por buena una ruta con huecos o rectas
+    if (!r.seleccion) r.seleccion = seleccion;   // por si se cargó un ruta.js antiguo (sin optimización)
     const opt = r.optimizacion;
-    if (opt && opt.cambio) {   // la lista pasa al orden optimizado (el primer elemento no cambia)
+    if (opt && opt.cambio && r.orden) {   // la lista pasa al orden optimizado (el primer elemento no cambia)
       const resto = miRuta.filter(id => !idsSel.includes(id));
       miRuta = [...r.orden.map(k => idsSel[k]), ...resto];
       guardarMiRuta(); renderMiRuta();   // (guardarMiRuta invalida la ruta: se da por buena justo después)
     }
     const soloBajadas = r.seleccion.filter(x => !x.punto);
+    if (!r.optimizacion && document.getElementById("optimizarOrden").checked) console.warn("ruta.js no incluye la optimización: sustitúyelo por la versión nueva");
     rutaGenerada = r; actualizarPasos();
     let bi = 0;
     r.segmentos.forEach(sg => { sg.color = sg.tipo === "bajada" ? colorDe(soloBajadas[bi++].properties) : COLOR_RUTA; });
