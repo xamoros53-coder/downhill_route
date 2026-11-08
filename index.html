@@ -486,6 +486,24 @@
                 <option value="marcha">Sentido de la marcha</option>
               </select>
             </div>
+            <div class="cfg-fila">
+              <div class="txt">Marcas de kilómetro<small>Números sobre la ruta (km 1, 2, 3…). En un cruce ves qué número toca en cada pasada</small></div>
+              <select id="cfgKm" aria-label="Marcas de kilómetro sobre la ruta">
+                <option value="0">Ninguna</option>
+                <option value="1">Cada 1 km</option>
+                <option value="2">Cada 2 km</option>
+                <option value="5">Cada 5 km</option>
+              </select>
+            </div>
+            <div class="cfg-fila">
+              <div class="txt">Resaltar tramo siguiente<small>Al seguir la ruta: pinta en azul brillante lo que te toca hacer a continuación</small></div>
+              <select id="cfgAdelante" aria-label="Distancia del tramo resaltado al seguir la ruta">
+                <option value="0">No</option>
+                <option value="300">300 m</option>
+                <option value="500">500 m</option>
+                <option value="1000">1 km</option>
+              </select>
+            </div>
           </details>
         </div>
       </div>
@@ -536,6 +554,12 @@ map.addControl(new maplibregl.NavigationControl(), "top-right");
 // Orientación del mapa al seguir la ruta: "norte" (norte arriba) o "marcha" (el mapa gira según hacia dónde avanzas)
 let orientMapa = "norte";
 try { orientMapa = localStorage.getItem("orientMapa") === "marcha" ? "marcha" : "norte"; } catch (e) {}
+// Marcas de km sobre la ruta (0 = ninguna) y distancia del tramo resaltado al seguir la ruta (0 = no)
+let kmPaso = 1, adelanteM = 500;
+try {
+  const k = localStorage.getItem("kmPaso"); if (k !== null && [0, 1, 2, 5].includes(+k)) kmPaso = +k;
+  const a = localStorage.getItem("adelanteM"); if (a !== null && [0, 300, 500, 1000].includes(+a)) adelanteM = +a;
+} catch (e) {}
 function rumboEntre(lat1, lon1, lat2, lon2) {   // rumbo en grados (0 = norte, 90 = este)
   const r = Math.PI / 180, f1 = lat1 * r, f2 = lat2 * r, dl = (lon2 - lon1) * r;
   const y = Math.sin(dl) * Math.cos(f2), x = Math.cos(f1) * Math.sin(f2) - Math.sin(f1) * Math.cos(f2) * Math.cos(dl);
@@ -1788,9 +1812,78 @@ function dibujarRuta(segmentos) {
         "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.35, 14, 0.5, 17, 0.7],
         "icon-rotation-alignment": "map", "icon-allow-overlap": true, "icon-ignore-placement": true } });
   }
+  asegurarCapasSeguir();
+  actualizarKm();
   const bnd = new maplibregl.LngLatBounds();
   feats.forEach(f => f.geometry.coordinates.forEach(c => bnd.extend(c)));
   if (!bnd.isEmpty()) map.fitBounds(bnd, { padding: 70, duration: 600 });
+}
+
+// ---- Marcas de km y tramo siguiente (para no perderte en bucles y cruces) ----
+var VACIO = { type: "FeatureCollection", features: [] };
+
+function asegurarCapasSeguir() {
+  if (!map.getSource("ruta-adelante")) {
+    const cap = { "line-cap": "round", "line-join": "round" };
+    const antes = map.getLayer("ruta-flechas") ? "ruta-flechas" : undefined;
+    map.addSource("ruta-adelante", { type: "geojson", data: VACIO });
+    map.addLayer({ id: "ruta-adelante-borde", type: "line", source: "ruta-adelante", layout: cap,
+      paint: { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 10, 14, 15, 17, 20] } }, antes);
+    map.addLayer({ id: "ruta-adelante", type: "line", source: "ruta-adelante", layout: cap,
+      paint: { "line-color": "#00b0ff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 6, 14, 9, 17, 13] } }, antes);
+  }
+  if (!map.getSource("ruta-km")) {
+    map.addSource("ruta-km", { type: "geojson", data: VACIO });
+    map.addLayer({ id: "ruta-km", type: "symbol", source: "ruta-km",
+      layout: { "icon-image": ["concat", "km-", ["get", "n"]], "icon-allow-overlap": true, "icon-ignore-placement": true,
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.6, 14, 0.8, 17, 1] } });
+  }
+}
+
+function crearIconoKm(n) {   // chapa redonda con el número (no hace falta cargar fuentes del mapa)
+  const id = "km-" + n;
+  if (map.hasImage(id)) return id;
+  const r = 2, s = 36 * r, c = document.createElement("canvas"); c.width = c.height = s;
+  const g = c.getContext("2d");
+  g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 3 * r, 0, Math.PI * 2);
+  g.fillStyle = "#ffffff"; g.fill();
+  g.lineWidth = 3 * r; g.strokeStyle = COLOR_RUTA; g.stroke();
+  g.fillStyle = "#1a1a1a"; g.textAlign = "center"; g.textBaseline = "middle";
+  g.font = `700 ${(String(n).length > 2 ? 12 : String(n).length > 1 ? 15 : 18) * r}px system-ui, sans-serif`;
+  g.fillText(String(n), s / 2, s / 2 + r);
+  map.addImage(id, g.getImageData(0, 0, s, s), { pixelRatio: r });
+  return id;
+}
+
+function actualizarKm() {
+  const src = map.getSource("ruta-km");
+  if (!src) return;
+  if (!kmPaso || !rutaGenerada) { src.setData(VACIO); return; }
+  const P = construirSeguirPts(rutaGenerada.segmentos);
+  if (P.length < 2) { src.setData(VACIO); return; }
+  const total = P[P.length - 1].d, feats = [];
+  let j = 0;
+  for (let km = kmPaso; km * 1000 <= total - 100; km += kmPaso) {   // sin marca pegada a la meta
+    const d = km * 1000;
+    while (j < P.length - 2 && P[j + 1].d < d) j++;
+    const a = P[j], b = P[j + 1], t = b.d > a.d ? (d - a.d) / (b.d - a.d) : 0;
+    crearIconoKm(km);
+    feats.push({ type: "Feature", properties: { n: km }, geometry: { type: "Point", coordinates: [a.lon + t * (b.lon - a.lon), a.lat + t * (b.lat - a.lat)] } });
+  }
+  src.setData({ type: "FeatureCollection", features: feats });
+}
+
+// Resalta los próximos metros de la ruta, siguiendo el orden del recorrido (no otro tramo que pase por el mismo sitio)
+function actualizarAdelante(s) {
+  const src = map.getSource("ruta-adelante");
+  if (!src) return;
+  if (!adelanteM || !s || !seguirPts) { src.setData(VACIO); return; }
+  const P = seguirPts, a = P[s.i], b = P[s.i + 1];
+  const t = b.d > a.d ? (s.d - a.d) / (b.d - a.d) : 0;
+  const coords = [[a.lon + t * (b.lon - a.lon), a.lat + t * (b.lat - a.lat)]];
+  const fin = Math.min(P[P.length - 1].d, s.d + adelanteM);
+  for (let k = s.i + 1; k < P.length && P[k].d <= fin; k++) coords.push([P[k].lon, P[k].lat]);
+  src.setData(coords.length > 1 ? { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: coords } } : VACIO);
 }
 
 // ---- Perfil de altimetría ----
@@ -2095,6 +2188,7 @@ function invalidarRuta() {
   rutaGenerada = null;
   const src = map.getSource("ruta-generada");
   if (src) src.setData({ type: "FeatureCollection", features: [] });
+  ["ruta-km", "ruta-adelante"].forEach(id => { const q = map.getSource(id); if (q) q.setData(VACIO); });
   const srcSalto = map.getSource("ruta-salto");
   if (srcSalto) srcSalto.setData({ type: "FeatureCollection", features: [] });
   document.getElementById("resumenRuta").innerHTML = "";
@@ -2238,6 +2332,7 @@ function seguirActualizar() {
   if (!siguiendo || !seguirPts || seguirPts.length < 2 || !ubic.pos) return;
   const s = snapRuta(ubic.pos.lat, ubic.pos.lon);
   seguirUlt = s;
+  actualizarAdelante(s);
   const total = seguirPts[seguirPts.length - 1].d, P = seguirPts;
   let i0 = s.i, i1 = s.i + 1;
   while (i0 > 0 && s.d - P[i0].d < 30) i0--;
@@ -2302,6 +2397,7 @@ function iniciarSeguir() {
 function detenerSeguir() {
   if (!siguiendo && !btnSeguir.classList.contains("activo")) return;
   siguiendo = false; seguirUlt = null; seguirPts = null; textoSeguir = "";
+  { const q = map.getSource("ruta-adelante"); if (q) q.setData(VACIO); }
   clearTimeout(ubic.pausaT);
   document.body.classList.remove("modo-seguir");
   ubic.detener();
@@ -2324,6 +2420,18 @@ cfgOrient.addEventListener("change", () => {
   if (typeof siguiendo !== "undefined" && siguiendo) {   // se aplica al momento si estás siguiendo la ruta
     if (orientMapa === "marcha") ubic.mover(); else map.easeTo({ bearing: 0, duration: 500 });
   }
+});
+const cfgKm = document.getElementById("cfgKm"), cfgAdelante = document.getElementById("cfgAdelante");
+cfgKm.value = String(kmPaso); cfgAdelante.value = String(adelanteM);
+cfgKm.addEventListener("change", () => {
+  kmPaso = +cfgKm.value;
+  try { localStorage.setItem("kmPaso", kmPaso); } catch (e) {}
+  actualizarKm();
+});
+cfgAdelante.addEventListener("change", () => {
+  adelanteM = +cfgAdelante.value;
+  try { localStorage.setItem("adelanteM", adelanteM); } catch (e) {}
+  actualizarAdelante(siguiendo ? seguirUlt : null);
 });
 function fmtBytes(b) {
   if (!b) return "0 KB";
