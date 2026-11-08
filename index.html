@@ -370,6 +370,27 @@
   .yo-punto::after { content: ""; position: absolute; inset: -9px; border-radius: 50%; border: 2px solid rgba(26,115,232,.55); animation: yoPulso 1.8s ease-out infinite; }
   @keyframes yoPulso { 0% { transform: scale(.55); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .yo-punto::after { animation: none; } }
+
+  /* ===== Siguiendo la ruta: más sitio para el mapa ===== */
+  body.modo-seguir #zonaBox, body.modo-seguir #pasos, body.modo-seguir #btnPasosVer { display: none !important; }
+  body.modo-seguir #mapwrap { --pasosH: 0px; }
+  @media (max-width: 720px) {
+    body.modo-seguir #btnPanelToggle { height: 16px; min-height: 0; padding: 0; gap: 0; border-radius: 8px; }
+    body.modo-seguir #btnPanelToggle .pill { width: 44px; height: 4px; }
+    body.modo-seguir #btnPanelToggle .flecha { display: none; }
+    body.modo-seguir #barraRuta { padding-top: 3px !important; gap: 6px 10px; }
+  }
+
+  /* ===== Zoom del perfil de altimetría ===== */
+  #perfilAlt .cab #perfilInfo { min-width: 0; text-overflow: ellipsis; }
+  #perfilZoom { flex: none; display: flex; gap: 4px; }
+  #perfilZoom button[hidden] { display: none; }
+  #perfilAlt #perfilZoom button { width: 30px; height: 24px; padding: 0; font-size: 17px; font-weight: 700; background: var(--brand-soft); color: var(--brand); border-radius: 12px; }
+  #perfilAlt #perfilZoom button:hover:not(:disabled) { background: var(--brand); color: #fff; }
+  #perfilAlt #perfilZoom button:disabled { opacity: .35; cursor: default; }
+
+  /* ===== Configuración: selector de orientación ===== */
+  .cfg-fila select { flex: none; max-width: 150px; min-height: 36px; padding: 0 8px; border: 1.5px solid var(--brand); border-radius: 8px; background: var(--brand-soft); color: var(--ink); font-size: 13px; font-weight: 600; cursor: pointer; }
 </style>
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="64x64" href="./icons/favicon-64.png">
@@ -408,7 +429,7 @@
     <div id="toast"><span class="t"></span></div>
     <div id="ficha"></div>
     <div id="perfilAlt">
-      <div class="cab"><span id="perfilResumen"></span><span id="perfilInfo"></span><button id="perfilCerrar" title="Ocultar perfil">×</button></div>
+      <div class="cab"><span id="perfilResumen"></span><span id="perfilInfo"></span><span id="perfilZoom"><button id="pfIzq" type="button" hidden title="Desplazar a la izquierda" aria-label="Desplazar el perfil a la izquierda">‹</button><button id="pfZoomMenos" type="button" title="Alejar" aria-label="Alejar el perfil">−</button><button id="pfZoomMas" type="button" title="Acercar" aria-label="Acercar el perfil">+</button><button id="pfDer" type="button" hidden title="Desplazar a la derecha" aria-label="Desplazar el perfil a la derecha">›</button></span><button id="perfilCerrar" title="Ocultar perfil">×</button></div>
       <div id="perfilGraf"></div>
     </div>
   </div>
@@ -458,6 +479,13 @@
               <div class="txt">Caché de bajadas<small id="cfgInfo">…</small></div>
               <button id="cfgLimpiar" type="button" title="Borra la caché de bajadas (se conservan las de tu ruta). Podrás volver a descargarlas con «Descargar bajadas»">Vaciar caché</button>
             </div>
+            <div class="cfg-fila">
+              <div class="txt">Orientación del mapa<small>Al seguir la ruta: norte siempre arriba, o el mapa gira hacia donde avanzas</small></div>
+              <select id="cfgOrient" aria-label="Orientación del mapa al seguir la ruta">
+                <option value="norte">Norte arriba</option>
+                <option value="marcha">Sentido de la marcha</option>
+              </select>
+            </div>
           </details>
         </div>
       </div>
@@ -505,7 +533,16 @@ const map = new maplibregl.Map({
 
 map.addControl(new maplibregl.NavigationControl(), "top-right");
 // ---- Mi ubicación: punto azul que te sigue + botón ◎ para centrar el mapa en ti ----
+// Orientación del mapa al seguir la ruta: "norte" (norte arriba) o "marcha" (el mapa gira según hacia dónde avanzas)
+let orientMapa = "norte";
+try { orientMapa = localStorage.getItem("orientMapa") === "marcha" ? "marcha" : "norte"; } catch (e) {}
+function rumboEntre(lat1, lon1, lat2, lon2) {   // rumbo en grados (0 = norte, 90 = este)
+  const r = Math.PI / 180, f1 = lat1 * r, f2 = lat2 * r, dl = (lon2 - lon1) * r;
+  const y = Math.sin(dl) * Math.cos(f2), x = Math.cos(f1) * Math.sin(f2) - Math.sin(f1) * Math.cos(f2) * Math.cos(dl);
+  return (Math.atan2(y, x) / r + 360) % 360;
+}
 const ubic = {
+  rumbo: null, rumboRuta: null,
   pos: null, watchId: null, camSigue: false, zoomPend: 0, unaVez: 0, marker: null, btn: null, pausaT: null,
   iniciar() {
     if (this.watchId !== null) return;
@@ -515,7 +552,11 @@ const ubic = {
       { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 });
   },
   alActualizar(p) {
-    this.pos = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, ts: p.timestamp };
+    const ant = this.pos, c = p.coords;
+    this.pos = { lat: c.latitude, lon: c.longitude, acc: c.accuracy, ts: p.timestamp };
+    // Rumbo: el del GPS si te estás moviendo; si el navegador no da velocidad, el calculado entre dos posiciones; si no, se mantiene el último
+    if (c.heading !== null && c.heading !== undefined && isFinite(c.heading) && (c.speed === null || c.speed === undefined || c.speed > 0.8)) this.rumbo = c.heading;
+    else if ((c.speed === null || c.speed === undefined) && ant && haversine([ant.lat, ant.lon], [this.pos.lat, this.pos.lon]) > 8) this.rumbo = rumboEntre(ant.lat, ant.lon, this.pos.lat, this.pos.lon);
     if (!this.marker) {
       const w = document.createElement("div"); w.className = "yo-wrap";
       w.innerHTML = '<div class="yo-punto"></div>';
@@ -532,6 +573,7 @@ const ubic = {
       this.camSigue = false; this.actualizarBtn();
       setEstado("No tengo permiso para ver tu ubicación. Actívalo en los ajustes del navegador.");
     } else if (e && e.code === 2) setEstado("No se puede determinar tu posición (¿GPS desactivado?).");
+    else if (e && e.code === 3) setEstado("Tu posición tarda en llegar. Inténtalo de nuevo en un momento.");
   },
   dibujarPrecision() {
     const { lat, lon, acc } = this.pos, r = Math.min(Math.max(acc || 0, 0), 500);
@@ -560,6 +602,10 @@ const ubic = {
     const o = { center: [this.pos.lon, this.pos.lat], duration: 500, essential: true, offset: [0, conPerf ? -perfil.offsetHeight / 2 : 0] };
     if (this.zoomPend && map.getZoom() < this.zoomPend) o.zoom = this.zoomPend;
     this.zoomPend = 0;
+    if (typeof siguiendo !== "undefined" && siguiendo && orientMapa === "marcha") {   // mapa girado según el sentido de la marcha
+      const r = this.rumbo !== null ? this.rumbo : this.rumboRuta;
+      if (r !== null && r !== undefined && Math.abs(((r - map.getBearing() + 540) % 360) - 180) >= 6) o.bearing = r;
+    }
     map.easeTo(o);
   },
   activar(zoom) {      // centra el mapa en ti y lo mantiene siguiéndote
@@ -567,9 +613,22 @@ const ubic = {
     this.iniciar();
     if (this.pos) this.mover();
   },
-  centrarUnaVez(zoom) {   // centra el mapa en ti una sola vez (sin activar el seguimiento continuo)
-    this.iniciar();
-    if (this.pos) { this.zoomPend = zoom || 15; this.mover(); } else this.unaVez = zoom || 15;
+  centrarUnaVez(zoom) {   // te sitúa UNA vez: una lectura de GPS, centra el mapa y se acabó (sin seguimiento continuo)
+    if (this.watchId !== null) {   // si ya hay seguimiento (modo «Seguir ruta»), basta con centrar en la última posición
+      if (this.pos) { this.zoomPend = zoom || 15; this.mover(); } else this.unaVez = zoom || 15;
+      return;
+    }
+    if (!navigator.geolocation) { setEstado("Tu navegador no permite acceder a la ubicación."); return; }
+    this.unaVez = zoom || 15;
+    navigator.geolocation.getCurrentPosition(
+      (p) => this.alActualizar(p), (e) => { this.unaVez = 0; this.alError(e); },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+  },
+  detener() {          // apaga el seguimiento continuo del GPS (el punto azul se queda donde estaba)
+    if (this.watchId !== null) { navigator.geolocation.clearWatch(this.watchId); this.watchId = null; }
+    this.camSigue = false; this.actualizarBtn();
+    this.rumbo = null; this.rumboRuta = null;
+    if (orientMapa === "marcha" && Math.abs(map.getBearing()) > 0.5) map.easeTo({ bearing: 0, duration: 500 });   // al terminar, norte arriba otra vez
   },
   actualizarBtn() { if (this.btn) this.btn.classList.toggle("activo", this.camSigue); },
   pausarCam() {        // el usuario ha movido el mapa: se deja de centrar (en «Seguir ruta» se retoma a los 8 s)
@@ -586,8 +645,8 @@ class UbicacionControl {
     b.type = "button"; b.className = "ubic-btn"; b.title = "Mi ubicación"; b.setAttribute("aria-label", "Mostrar mi ubicación");
     b.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2" fill="currentColor"/><circle cx="12" cy="12" r="7.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>';
     b.addEventListener("click", () => {
-      if (ubic.camSigue && ubic.pos && !(typeof siguiendo !== "undefined" && siguiendo)) { ubic.camSigue = false; ubic.actualizarBtn(); }
-      else ubic.activar(16);
+      if (typeof siguiendo !== "undefined" && siguiendo) ubic.activar(16);   // en «Seguir ruta» vuelve a seguirte
+      else ubic.centrarUnaVez(16);                                            // si no: te sitúa una vez y nada más
     });
     ubic.btn = b; this._c.appendChild(b);
     return this._c;
@@ -698,6 +757,8 @@ let modoMarcar = null;
 let rutaGenerada = null;   // { gpx, segmentos, stats } de la última ruta calculada
 let perfilDatos = null, perfilGeom = null, markerPerfil = null;
 let perfilPuntos = [];   // puntos elegidos sobre el perfil: { d, n, nombre }
+let perfilZoom = 1, perfilCentro = null, perfilCentroDib = null, perfilScrub = false;   // zoom horizontal del perfil
+const PERFIL_VENTANA_MIN_M = 150;   // lo máximo que se puede acercar: tramos de 150 m
 let versionRuta = 0;       // sube con cada cambio; descarta cálculos que ya no valen
 const COLOR_RUTA = "#7b1fa2"; // enlaces y contorno de las bajadas de la ruta
 
@@ -1775,6 +1836,7 @@ function mostrarPerfil(segmentos, st, puntosSel = []) {
   const { pts, total } = construirPerfil(segmentos);
   perfilDatos = pts.length > 1 ? pts : null;
   perfilPuntos = perfilDatos ? ubicarPuntosEnPerfil(pts, puntosSel) : [];
+  perfilZoom = 1; perfilCentro = null;
   let t = `<strong>${fmtLong(Math.round(total))}</strong>`;
   if (st.sube !== null) t += ` · ↑${st.sube} m ↓${st.baja} m`;
   document.getElementById("perfilResumen").innerHTML = t;
@@ -1785,51 +1847,105 @@ function mostrarPerfil(segmentos, st, puntosSel = []) {
 
 function ocultarPerfil() {
   perfilDatos = null; perfilGeom = null; perfilPuntos = [];
+  perfilZoom = 1; perfilCentro = null;
+  actualizarBotonesPerfil();
   document.getElementById("mapwrap").classList.remove("conPerfil");
   document.getElementById("perfilGraf").innerHTML = "";
   if (markerPerfil) markerPerfil.getElement().style.display = "none";
 }
 
+// Ventana visible del perfil según el zoom (si estás siguiendo la ruta, se centra en ti)
+function perfilVentana() {
+  const total = perfilDatos[perfilDatos.length - 1].d || 1;
+  const maxZ = Math.max(1, total / PERFIL_VENTANA_MIN_M);
+  perfilZoom = Math.min(Math.max(1, perfilZoom), maxZ);
+  const span = total / perfilZoom;
+  let c = perfilCentro;
+  if (typeof siguiendo !== "undefined" && siguiendo && seguirUlt) c = seguirUlt.d;
+  if (c === null || c === undefined) c = total / 2;
+  const d0 = Math.max(0, Math.min(total - span, c - span / 2));
+  perfilCentro = d0 + span / 2;
+  return { d0, span, total, maxZ };
+}
+function perfilZoomar(f, dFijo) {
+  if (!perfilDatos) return;
+  const v = perfilVentana();
+  const nz = Math.min(v.maxZ, Math.max(1, perfilZoom * f));
+  if (nz === perfilZoom) return;
+  const nspan = v.total / nz;
+  if (dFijo !== undefined) perfilCentro = dFijo - (dFijo - v.d0) / v.span * nspan + nspan / 2;   // rueda: el punto bajo el cursor no se mueve
+  perfilZoom = nz;
+  dibujarPerfil();
+}
+function perfilDesplazar(dir) {
+  if (!perfilDatos) return;
+  const v = perfilVentana();
+  perfilCentro = v.d0 + v.span / 2 + dir * v.span * 0.5;
+  dibujarPerfil();
+}
+function actualizarBotonesPerfil() {
+  const g = (id) => document.getElementById(id);
+  const hay = !!perfilDatos, total = hay ? (perfilDatos[perfilDatos.length - 1].d || 1) : 1;
+  const sig = typeof siguiendo !== "undefined" && siguiendo;
+  g("pfZoomMenos").disabled = !hay || perfilZoom <= 1;
+  g("pfZoomMas").disabled = !hay || perfilZoom >= Math.max(1, total / PERFIL_VENTANA_MIN_M) - 1e-9;
+  g("pfIzq").hidden = g("pfDer").hidden = !(hay && perfilZoom > 1 && !sig);
+}
+
 function dibujarPerfil() {
   const cont = document.getElementById("perfilGraf");
-  if (!perfilDatos) { cont.innerHTML = '<div class="vacio">Sin datos de altitud para dibujar el perfil.</div>'; return; }
+  if (!perfilDatos) { cont.innerHTML = '<div class="vacio">Sin datos de altitud para dibujar el perfil.</div>'; actualizarBotonesPerfil(); return; }
   const pts = perfilDatos, W = cont.clientWidth, H = cont.clientHeight;
   if (!W || !H) return;
-  const ML = 44, MR = 12, MT = 8, MB = 18, total = pts[pts.length - 1].d || 1;
+  const ML = 44, MR = 12, MT = 8, MB = 18;
+  const { d0, span, total } = perfilVentana();
+  const d1 = d0 + span;
+  perfilCentroDib = d0 + span / 2;
+  // solo se dibujan los puntos de la ventana (más un vecino a cada lado para que la línea llegue al borde)
+  let a = 0; while (a < pts.length - 1 && pts[a + 1].d <= d0) a++;
+  let b = pts.length - 1; while (b > a && pts[b - 1].d >= d1) b--;
+  const vis = pts.slice(a, b + 1);
   let lo = Infinity, hi = -Infinity;
-  pts.forEach(q => { if (q.ele < lo) lo = q.ele; if (q.ele > hi) hi = q.ele; });
+  vis.forEach(q => { if (q.d >= d0 && q.d <= d1) { if (q.ele < lo) lo = q.ele; if (q.ele > hi) hi = q.ele; } });
+  if (!isFinite(lo)) vis.forEach(q => { if (q.ele < lo) lo = q.ele; if (q.ele > hi) hi = q.ele; });
   let emin = lo, emax = hi;
   if (emax - emin < 20) { const c = (emax + emin) / 2; emin = c - 10; emax = c + 10; }
   const pad = (emax - emin) * 0.08; emin -= pad; emax += pad;
-  const X = d => ML + d / total * (W - ML - MR);
+  const X = d => ML + (d - d0) / span * (W - ML - MR);
   const Y = e => MT + (1 - (e - emin) / (emax - emin)) * (H - MT - MB);
-  perfilGeom = { ML, MR, W, total };
+  perfilGeom = { ML, MR, W, total, d0, span };
 
-  let s = `<svg width="${W}" height="${H}" style="display:block">`;
+  let s = `<svg width="${W}" height="${H}" style="display:block"><defs><clipPath id="pfClip"><rect x="${ML}" y="0" width="${W - ML - MR}" height="${H - MB}"/></clipPath></defs>`;
   for (const e of [lo, (lo + hi) / 2, hi]) {
     s += `<line x1="${ML}" x2="${W - MR}" y1="${Y(e).toFixed(1)}" y2="${Y(e).toFixed(1)}" stroke="#e3e3e3"/>`
        + `<text x="${ML - 5}" y="${(Y(e) + 4).toFixed(1)}" text-anchor="end" font-size="10" fill="#777">${Math.round(e)} m</text>`;
   }
-  const km = total / 1000; let paso = 0.5;
-  for (const c of [0.5, 1, 2, 5, 10, 20, 50]) { paso = c; if (km / c <= 8) break; }
-  for (let k = 0; k * paso * 1000 <= total; k++) {
+  const km = span / 1000; let paso = 0.1;
+  for (const c of [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50]) { paso = c; if (km / c <= 8) break; }
+  let primera = true;
+  for (let k = Math.ceil(d0 / (paso * 1000) - 1e-9); k * paso * 1000 <= d1 + 1e-6; k++) {
     const x = X(k * paso * 1000).toFixed(1);
+    const etiqueta = String(+(k * paso).toFixed(2)).replace(".", ",") + (primera ? " km" : "");
+    primera = false;
     s += `<line x1="${x}" x2="${x}" y1="${MT}" y2="${H - MB}" stroke="#f0f0f0"/>`
-       + `<text x="${x}" y="${H - 4}" text-anchor="middle" font-size="10" fill="#777">${String(k * paso).replace(".", ",")}${k === 0 ? " km" : ""}</text>`;
+       + `<text x="${x}" y="${H - 4}" text-anchor="middle" font-size="10" fill="#777">${etiqueta}</text>`;
   }
-  const area = pts.map(q => `${X(q.d).toFixed(1)},${Y(q.ele).toFixed(1)}`);
-  s += `<polygon points="${X(0)},${H - MB} ${area.join(" ")} ${X(total)},${H - MB}" fill="rgba(44,62,80,.10)"/>`;
+  s += `<g clip-path="url(#pfClip)">`;
+  const area = vis.map(q => `${X(q.d).toFixed(1)},${Y(q.ele).toFixed(1)}`);
+  s += `<polygon points="${X(vis[0].d).toFixed(1)},${H - MB} ${area.join(" ")} ${X(vis[vis.length - 1].d).toFixed(1)},${H - MB}" fill="rgba(44,62,80,.10)"/>`;
   // línea por tramos de color (bajadas con su dificultad, enlaces en morado)
   let run = [], col = null;
   const cierra = () => { if (run.length > 1) s += `<polyline points="${run.join(" ")}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`; };
-  pts.forEach((q, i) => {
+  vis.forEach((q, i) => {
     const c = q.color || COLOR_RUTA, p = `${X(q.d).toFixed(1)},${Y(q.ele).toFixed(1)}`;
-    if (c !== col) { cierra(); run = i > 0 ? [`${X(pts[i - 1].d).toFixed(1)},${Y(pts[i - 1].ele).toFixed(1)}`] : []; col = c; }
+    if (c !== col) { cierra(); run = i > 0 ? [`${X(vis[i - 1].d).toFixed(1)},${Y(vis[i - 1].ele).toFixed(1)}`] : []; col = c; }
     run.push(p);
   });
   cierra();
+  s += `</g>`;
   // puntos elegidos por el usuario (mismo número y color que en el mapa)
   for (const pp of perfilPuntos) {
+    if (pp.d < d0 || pp.d > d1) continue;
     const x = X(pp.d).toFixed(1);
     s += `<g><title>${esc(pp.nombre || "Punto " + pp.n)}</title>`
        + `<line x1="${x}" x2="${x}" y1="${MT}" y2="${H - MB}" stroke="${COLOR_RUTA}" stroke-width="1.5" stroke-dasharray="4 3"/>`
@@ -1841,13 +1957,14 @@ function dibujarPerfil() {
   cont.innerHTML = s;
   perfilGeom.X = X; perfilGeom.Y = Y;
   actualizarYoPerfil();
+  actualizarBotonesPerfil();
 }
 
 function hoverPerfil(ev) {
   if (!perfilDatos || !perfilGeom) return;
   const cont = document.getElementById("perfilGraf"), g = perfilGeom, pts = perfilDatos;
   const r = cont.getBoundingClientRect();
-  let d = (ev.clientX - r.left - g.ML) / (g.W - g.ML - g.MR) * g.total;
+  let d = g.d0 + (ev.clientX - r.left - g.ML) / (g.W - g.ML - g.MR) * g.span;
   d = Math.max(0, Math.min(g.total, d));
   let a = 0, b = pts.length - 1;
   while (b - a > 1) { const m = (a + b) >> 1; if (pts[m].d < d) a = m; else b = m; }
@@ -1889,9 +2006,23 @@ function salirPerfil() {
 }
 const perfilGrafEl = document.getElementById("perfilGraf");
 perfilGrafEl.addEventListener("pointerdown", (ev) => {
+  perfilScrub = true;
   try { perfilGrafEl.setPointerCapture(ev.pointerId); } catch (e) {}   // sigue el dedo aunque se salga del gráfico
   hoverPerfil(ev);
 });
+perfilGrafEl.addEventListener("pointerup", () => { perfilScrub = false; });
+perfilGrafEl.addEventListener("pointercancel", () => { perfilScrub = false; });
+perfilGrafEl.addEventListener("wheel", (ev) => {   // ratón: la rueda acerca/aleja alrededor del cursor
+  if (!perfilDatos || !perfilGeom) return;
+  ev.preventDefault();
+  const g = perfilGeom, r = perfilGrafEl.getBoundingClientRect();
+  const d = g.d0 + Math.min(1, Math.max(0, (ev.clientX - r.left - g.ML) / (g.W - g.ML - g.MR))) * g.span;
+  perfilZoomar(ev.deltaY < 0 ? 1.4 : 1 / 1.4, d);
+}, { passive: false });
+document.getElementById("pfZoomMas").addEventListener("click", () => perfilZoomar(2));
+document.getElementById("pfZoomMenos").addEventListener("click", () => perfilZoomar(0.5));
+document.getElementById("pfIzq").addEventListener("click", () => perfilDesplazar(-1));
+document.getElementById("pfDer").addEventListener("click", () => perfilDesplazar(1));
 perfilGrafEl.addEventListener("pointermove", hoverPerfil);
 perfilGrafEl.addEventListener("pointerleave", (ev) => { if (ev.pointerType === "mouse") salirPerfil(); });   // en táctil la bola se queda al soltar
 document.getElementById("perfilCerrar").addEventListener("click", () => {
@@ -1997,7 +2128,7 @@ document.getElementById("btnGenerar").addEventListener("click", async () => {
   btn.disabled = true;
   estado.textContent = "Iniciando...";
   try {
-    const todasLasBajadas = [...porId.values()];   // todas las bajadas cargadas: BRouter evita subir por ellas
+    const todasLasBajadas = [...porId.values()];   // (ya no se usa: ruta.js calcula los nogos con la bajada previa y las que quedan por delante en la ruta)
     const r = await window.generarRutaGPX(seleccion, null, fin, perfil, (msg) => { if (version === versionRuta) estado.textContent = msg; }, todasLasBajadas);
     if (version !== versionRuta) { estado.textContent = "La selección cambió mientras se calculaba. Vuelve a generar."; return; }
     const saltos = buscarSaltos(r.segmentos);
@@ -2121,7 +2252,10 @@ function seguirActualizar() {
   textoSeguir = t;
   const info = document.getElementById("perfilInfo");
   if (info) info.textContent = t;
-  actualizarYoPerfil();
+  if (dd > 5) ubic.rumboRuta = rumboEntre(P[i0].lat, P[i0].lon, P[i1].lat, P[i1].lon);   // sentido de la ruta en tu punto (para orientar el mapa)
+  // con zoom, la ventana del perfil te acompaña (se redibuja cuando te has movido un poco)
+  if (perfilZoom > 1 && perfilDatos && perfilGeom && !perfilScrub && Math.abs(s.d - perfilCentroDib) > Math.max(5, perfilGeom.span * 0.01)) dibujarPerfil();
+  else actualizarYoPerfil();
 }
 
 // Marca tu posición en el gráfico de altimetría
@@ -2138,6 +2272,7 @@ function actualizarYoPerfil() {
     g.appendChild(l); g.appendChild(c); svg.appendChild(g);
   }
   const x = perfilGeom.X(seguirUlt.d), y = perfilGeom.Y(seguirUlt.ele), H = cont.clientHeight;
+  g.style.display = (x < perfilGeom.ML - 1 || x > perfilGeom.W - perfilGeom.MR + 1) ? "none" : "";
   const l = g.firstChild, c = g.lastChild;
   l.setAttribute("x1", x); l.setAttribute("x2", x); l.setAttribute("y1", 8); l.setAttribute("y2", H - 18);
   c.setAttribute("cx", x); c.setAttribute("cy", y);
@@ -2154,6 +2289,7 @@ function iniciarSeguir() {
   seguirPts = construirSeguirPts(rutaGenerada.segmentos);
   if (seguirPts.length < 2) return;
   siguiendo = true; seguirUlt = null; textoSeguir = "";
+  document.body.classList.add("modo-seguir");   // oculta «Descargar bajadas» y los pasos, y estrecha la barra del panel
   btnSeguir.classList.add("activo"); btnSeguir.textContent = "■ Parar";
   document.getElementById("mapwrap").classList.add("conPerfil");   // por si habías cerrado el perfil
   dibujarPerfil();
@@ -2167,8 +2303,10 @@ function detenerSeguir() {
   if (!siguiendo && !btnSeguir.classList.contains("activo")) return;
   siguiendo = false; seguirUlt = null; seguirPts = null; textoSeguir = "";
   clearTimeout(ubic.pausaT);
+  document.body.classList.remove("modo-seguir");
+  ubic.detener();
   btnSeguir.classList.remove("activo"); btnSeguir.textContent = "▶ Seguir ruta";
-  actualizarYoPerfil();
+  actualizarYoPerfil(); actualizarBotonesPerfil();
   const info = document.getElementById("perfilInfo"); if (info) info.textContent = "";
   try { if (wakeLock) wakeLock.release(); } catch (e) {}
   wakeLock = null;
@@ -2178,6 +2316,15 @@ btnSeguir.addEventListener("click", () => { if (siguiendo) detenerSeguir(); else
 
 // ---- Configuración: caché de bajadas ----
 const cfgEl = document.getElementById("config");
+const cfgOrient = document.getElementById("cfgOrient");
+cfgOrient.value = orientMapa;
+cfgOrient.addEventListener("change", () => {
+  orientMapa = cfgOrient.value === "marcha" ? "marcha" : "norte";
+  try { localStorage.setItem("orientMapa", orientMapa); } catch (e) {}
+  if (typeof siguiendo !== "undefined" && siguiendo) {   // se aplica al momento si estás siguiendo la ruta
+    if (orientMapa === "marcha") ubic.mover(); else map.easeTo({ bearing: 0, duration: 500 });
+  }
+});
 function fmtBytes(b) {
   if (!b) return "0 KB";
   if (b < 1024 * 1024) return Math.max(1, Math.round(b / 1024)) + " KB";
