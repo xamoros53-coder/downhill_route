@@ -418,6 +418,7 @@
         <button id="btnPanelToggle" type="button" aria-expanded="false" aria-controls="detalle" aria-label="Mostrar u ocultar la lista de bajadas"><span class="pill"></span><span class="flecha">▲</span></button>
         <div class="ctl-ruta">
           <label class="check" for="volverInicio"><input type="checkbox" id="volverInicio" checked />Ruta circular</label>
+          <label class="check" for="optimizarOrden" title="Reordena las bajadas y puntos (salvo el primero) para que la ruta tenga la mínima subida"><input type="checkbox" id="optimizarOrden" checked />Optimizar orden (menos subida)</label>
           <div class="tipo-fila">
             <select id="perfil" aria-label="Modo de enrutamiento">
               <option value="trekking">Modo Trekking</option>
@@ -892,6 +893,7 @@ function puedeGenerar() {
 function actualizarBotonGenerar() { document.getElementById("btnGenerar").disabled = !puedeGenerar(); actualizarPasos(); }
 document.getElementById("volverInicio").addEventListener("change", () => { invalidarRuta(); actualizarUIPuntos(); });
 document.getElementById("perfil").addEventListener("change", () => invalidarRuta());
+document.getElementById("optimizarOrden").addEventListener("change", () => invalidarRuta());
 document.getElementById("btnInfoPerfil").addEventListener("click", () => {
   const b = document.getElementById("btnInfoPerfil"), i = document.getElementById("infoPerfil");
   i.hidden = !i.hidden; b.setAttribute("aria-expanded", String(!i.hidden));
@@ -1930,12 +1932,13 @@ function invalidarRuta() {
 document.getElementById("btnGenerar").addEventListener("click", async () => {
   if (rutaGenerada) { descargarRuta(); return; }
   if (!puedeGenerar()) return;
-  let nPunto = 0;
-  const seleccion = miRuta.map(id => {
-    if (esPunto(id)) { const pt = puntosInter.get(id); return pt ? { punto: true, lat: pt[0], lon: pt[1], nombre: (pt[2] || `Punto ${++nPunto}`) } : null; }
-    return porId.get(id);
-  }).filter(Boolean);
-  const soloBajadas = seleccion.filter(x => !x.punto);
+  const seleccion = [], idsSel = [];   // idsSel[k] = id de la lista que corresponde a seleccion[k]
+  for (const id of miRuta) {
+    const it = esPunto(id)
+      ? (() => { const pt = puntosInter.get(id); return pt ? { punto: true, lat: pt[0], lon: pt[1], nombre: pt[2] || null } : null; })()
+      : porId.get(id);
+    if (it) { seleccion.push(it); idsSel.push(id); }
+  }
   const perfil = document.getElementById("perfil").value;
   const btn = document.getElementById("btnGenerar");
   const estado = document.getElementById("estadoRuta");
@@ -1952,21 +1955,33 @@ document.getElementById("btnGenerar").addEventListener("click", async () => {
   estado.textContent = "Iniciando...";
   try {
     const todasLasBajadas = [...porId.values()];   // todas las bajadas cargadas: BRouter evita subir por ellas
-    const r = await window.generarRutaGPX(seleccion, null, fin, perfil, (msg) => { if (version === versionRuta) estado.textContent = msg; }, todasLasBajadas);
+    const r = await window.generarRutaGPX(seleccion, null, fin, perfil, (msg) => { if (version === versionRuta) estado.textContent = msg; }, todasLasBajadas,
+      { optimizar: document.getElementById("optimizarOrden").checked, cancelado: () => version !== versionRuta });
     if (version !== versionRuta) { estado.textContent = "La selección cambió mientras se calculaba. Vuelve a generar."; return; }
     const saltos = buscarSaltos(r.segmentos);
     if (saltos.length) { avisarSaltos(saltos); return; }   // red de seguridad: no se da por buena una ruta con huecos o rectas
+    const opt = r.optimizacion;
+    if (opt && opt.cambio) {   // la lista pasa al orden optimizado (el primer elemento no cambia)
+      const resto = miRuta.filter(id => !idsSel.includes(id));
+      miRuta = [...r.orden.map(k => idsSel[k]), ...resto];
+      guardarMiRuta(); renderMiRuta();   // (guardarMiRuta invalida la ruta: se da por buena justo después)
+    }
+    const soloBajadas = r.seleccion.filter(x => !x.punto);
     rutaGenerada = r; actualizarPasos();
     let bi = 0;
     r.segmentos.forEach(sg => { sg.color = sg.tipo === "bajada" ? colorDe(soloBajadas[bi++].properties) : COLOR_RUTA; });
     dibujarRuta(r.segmentos);
-    mostrarPerfil(r.segmentos, r.stats, seleccion.filter(x => x.punto));
+    mostrarPerfil(r.segmentos, r.stats, r.seleccion.filter(x => x.punto));
     document.getElementById("btnGenerar").textContent = "Descargar GPX";
     mostrarBotonSeguir(true);
     const sinEvitar = r.segmentos.filter(sg => sg.tipo === "enlace" && sg.conNogo === false).length;
-    estado.textContent = "Ruta lista. Revísala en el mapa y descarga el GPX."
+    const msgOpt = !opt ? "" : opt.fallo ? " No se pudo optimizar el orden (se ha usado el de tu lista)."
+      : opt.cambio ? ` Orden optimizado${opt.antes !== null ? `: subida en enlaces ${opt.antes} m → ${opt.despues} m` : ""}.`
+      : " Tu orden ya era de los más eficientes.";
+    estado.textContent = "Ruta lista. Revísala en el mapa y descarga el GPX." + msgOpt
       + (sinEvitar ? ` ⚠ ${sinEvitar} enlace${sinEvitar === 1 ? "" : "s"} no ha${sinEvitar === 1 ? "" : "n"} podido evitar subir por alguna bajada.` : "");
   } catch (e) {
+    if (e && e.cancelada) return;
     if (e && e.saltos && e.saltos.length) {   // ruta.js no ha podido unir algún tramo
       if (version === versionRuta) avisarSaltos(e.saltos);
     } else {
