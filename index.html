@@ -353,6 +353,23 @@
   #perfilAlt .cab button { width: 28px; height: 24px; border-radius: 12px; background: #e9eeea; color: var(--ink); font-size: 18px; }
   #perfilAlt .cab button:hover { background: #d62f2f; color: #fff; }
   #pasosCerrar { width: 30px; height: 30px; top: 3px; right: 3px; color: var(--ink); font-size: 22px; }
+
+  /* ===== Mi ubicación y «Seguir ruta» ===== */
+  #botonesRuta { display: flex; gap: 8px; align-self: stretch; flex: none; }
+  #botonesRuta.dos { flex: 0 0 100%; }
+  #botonesRuta.dos button { flex: 1; }
+  #btnSeguir { flex: none; min-height: 42px; padding: 0 14px; border: 2px solid #1a73e8; border-radius: 10px; background: #fff; color: #1a73e8; font-size: 14px; font-weight: 650; cursor: pointer; }
+  #btnSeguir:hover { background: #e8f0fe; }
+  #btnSeguir.activo { background: #d62f2f; border-color: #d62f2f; color: #fff; }
+  #btnSeguir[hidden] { display: none; }
+  @media (max-width: 720px) { #btnSeguir { min-height: 50px; } }
+  .ubic-btn { display: flex !important; align-items: center; justify-content: center; color: #333; }
+  .ubic-btn.activo { color: #1a73e8; }
+  .yo-wrap { width: 22px; height: 22px; pointer-events: none; }
+  .yo-punto { position: relative; width: 22px; height: 22px; border-radius: 50%; background: #1a73e8; border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25), 0 2px 6px rgba(0,0,0,.45); }
+  .yo-punto::after { content: ""; position: absolute; inset: -9px; border-radius: 50%; border: 2px solid rgba(26,115,232,.55); animation: yoPulso 1.8s ease-out infinite; }
+  @keyframes yoPulso { 0% { transform: scale(.55); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .yo-punto::after { animation: none; } }
 </style>
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="64x64" href="./icons/favicon-64.png">
@@ -411,7 +428,10 @@
             <button type="button" id="btnInfoPerfil" class="btn-info" aria-expanded="false" aria-controls="infoPerfil" aria-label="Qué significa cada modo">i</button>
           </div>
         </div>
-        <button id="btnGenerar" disabled>Generar ruta</button>
+        <div id="botonesRuta">
+          <button id="btnGenerar" disabled>Generar ruta</button>
+          <button id="btnSeguir" type="button" hidden title="Muestra tu posición en el mapa y en el perfil de altimetría mientras haces la ruta">▶ Seguir ruta</button>
+        </div>
         <div id="infoPerfil" hidden>
           <p>Modo de enrutamiento: cómo se unen las bajadas entre sí (subidas y conexiones). No cambia las bajadas.</p>
           <dl>
@@ -484,11 +504,98 @@ const map = new maplibregl.Map({
 });
 
 map.addControl(new maplibregl.NavigationControl(), "top-right");
-const geolocate = new maplibregl.GeolocateControl({
-  positionOptions: { enableHighAccuracy: true },
-  trackUserLocation: true, showUserLocation: false, showAccuracyCircle: true
-});
-map.addControl(geolocate, "top-right");   // botón ◎ + punto azul con tu ubicación
+// ---- Mi ubicación: punto azul que te sigue + botón ◎ para centrar el mapa en ti ----
+const ubic = {
+  pos: null, watchId: null, camSigue: false, zoomPend: 0, unaVez: 0, marker: null, btn: null, pausaT: null,
+  iniciar() {
+    if (this.watchId !== null) return;
+    if (!navigator.geolocation) { setEstado("Tu navegador no permite acceder a la ubicación."); return; }
+    this.watchId = navigator.geolocation.watchPosition(
+      (p) => this.alActualizar(p), (e) => this.alError(e),
+      { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 });
+  },
+  alActualizar(p) {
+    this.pos = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, ts: p.timestamp };
+    if (!this.marker) {
+      const w = document.createElement("div"); w.className = "yo-wrap";
+      w.innerHTML = '<div class="yo-punto"></div>';
+      this.marker = new maplibregl.Marker({ element: w }).setLngLat([this.pos.lon, this.pos.lat]).addTo(map);
+    } else this.marker.setLngLat([this.pos.lon, this.pos.lat]);
+    this.dibujarPrecision();
+    if (this.unaVez) { this.zoomPend = this.unaVez; this.unaVez = 0; this.mover(); }   // centrado inicial, sin dejar el seguimiento activo
+    else if (this.camSigue) this.mover();
+    if (typeof siguiendo !== "undefined" && siguiendo) seguirActualizar();
+  },
+  alError(e) {
+    if (e && e.code === 1) {
+      if (this.watchId !== null) { navigator.geolocation.clearWatch(this.watchId); this.watchId = null; }
+      this.camSigue = false; this.actualizarBtn();
+      setEstado("No tengo permiso para ver tu ubicación. Actívalo en los ajustes del navegador.");
+    } else if (e && e.code === 2) setEstado("No se puede determinar tu posición (¿GPS desactivado?).");
+  },
+  dibujarPrecision() {
+    const { lat, lon, acc } = this.pos, r = Math.min(Math.max(acc || 0, 0), 500);
+    const pts = [];
+    for (let i = 0; i <= 48; i++) {
+      const a = i / 48 * 2 * Math.PI;
+      pts.push([lon + r * Math.sin(a) / (111320 * Math.cos(lat * Math.PI / 180)), lat + r * Math.cos(a) / 111320]);
+    }
+    const data = { type: "FeatureCollection", features: [{ type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [pts] } }] };
+    const poner = () => {
+      try {
+        if (map.getSource("yo-precision")) map.getSource("yo-precision").setData(data);
+        else {
+          map.addSource("yo-precision", { type: "geojson", data });
+          map.addLayer({ id: "yo-precision-fill", type: "fill", source: "yo-precision", paint: { "fill-color": "#1a73e8", "fill-opacity": 0.12 } });
+          map.addLayer({ id: "yo-precision-line", type: "line", source: "yo-precision", paint: { "line-color": "#1a73e8", "line-opacity": 0.4, "line-width": 1 } });
+        }
+      } catch (e) {}
+    };
+    if (map.isStyleLoaded()) poner(); else map.once("load", poner);
+  },
+  mover() {
+    if (!this.pos) return;
+    const perfil = document.getElementById("perfilAlt");
+    const conPerf = typeof siguiendo !== "undefined" && siguiendo && perfil && perfil.offsetHeight;
+    const o = { center: [this.pos.lon, this.pos.lat], duration: 500, essential: true, offset: [0, conPerf ? -perfil.offsetHeight / 2 : 0] };
+    if (this.zoomPend && map.getZoom() < this.zoomPend) o.zoom = this.zoomPend;
+    this.zoomPend = 0;
+    map.easeTo(o);
+  },
+  activar(zoom) {      // centra el mapa en ti y lo mantiene siguiéndote
+    this.camSigue = true; this.zoomPend = zoom || 15; this.actualizarBtn();
+    this.iniciar();
+    if (this.pos) this.mover();
+  },
+  centrarUnaVez(zoom) {   // centra el mapa en ti una sola vez (sin activar el seguimiento continuo)
+    this.iniciar();
+    if (this.pos) { this.zoomPend = zoom || 15; this.mover(); } else this.unaVez = zoom || 15;
+  },
+  actualizarBtn() { if (this.btn) this.btn.classList.toggle("activo", this.camSigue); },
+  pausarCam() {        // el usuario ha movido el mapa: se deja de centrar (en «Seguir ruta» se retoma a los 8 s)
+    this.camSigue = false; this.actualizarBtn();
+    clearTimeout(this.pausaT);
+    if (typeof siguiendo !== "undefined" && siguiendo) this.pausaT = setTimeout(() => { if (siguiendo) { this.camSigue = true; this.actualizarBtn(); this.mover(); } }, 8000);
+  }
+};
+class UbicacionControl {
+  onAdd() {
+    this._c = document.createElement("div");
+    this._c.className = "maplibregl-ctrl maplibregl-ctrl-group";
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "ubic-btn"; b.title = "Mi ubicación"; b.setAttribute("aria-label", "Mostrar mi ubicación");
+    b.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2" fill="currentColor"/><circle cx="12" cy="12" r="7.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>';
+    b.addEventListener("click", () => {
+      if (ubic.camSigue && ubic.pos && !(typeof siguiendo !== "undefined" && siguiendo)) { ubic.camSigue = false; ubic.actualizarBtn(); }
+      else ubic.activar(16);
+    });
+    ubic.btn = b; this._c.appendChild(b);
+    return this._c;
+  }
+  onRemove() { this._c.remove(); }
+}
+map.addControl(new UbicacionControl(), "top-right");
+map.on("dragstart", (e) => { if (!e.originalEvent) return; ubic.unaVez = 0; if (ubic.camSigue) ubic.pausarCam(); });
 
 // Botón para alternar entre el mapa normal y la vista satélite
 class BaseMapaControl {
@@ -559,7 +666,7 @@ function setPanel(abierto) {
 const barraRutaEl = document.getElementById("barraRuta");
 let gesto = null, huboArrastre = false;
 barraRutaEl.addEventListener("pointerdown", (e) => {
-  if (e.target.closest("#btnGenerar, .ctl-ruta, #infoPerfil")) { gesto = null; return; }
+  if (e.target.closest("#botonesRuta, .ctl-ruta, #infoPerfil")) { gesto = null; return; }
   gesto = { y: e.clientY }; huboArrastre = false;
 });
 barraRutaEl.addEventListener("pointermove", (e) => {
@@ -572,7 +679,7 @@ barraRutaEl.addEventListener("pointerup", (e) => {
 });
 barraRutaEl.addEventListener("pointercancel", () => { gesto = null; });
 barraRutaEl.addEventListener("click", (e) => {                       // toque en cualquier parte de la barra
-  if (e.target.closest("#btnGenerar, .ctl-ruta, #infoPerfil")) return;
+  if (e.target.closest("#botonesRuta, .ctl-ruta, #infoPerfil")) return;
   if (huboArrastre) { huboArrastre = false; return; }
   setPanel(!miRutaEl.classList.contains("abierto"));
 });
@@ -993,7 +1100,7 @@ map.on("load", async () => {
       ajustarVista();
       if (nLocal) setEstado(`${nLocal} bajada${nLocal === 1 ? "" : "s"} recuperada${nLocal === 1 ? "" : "s"} de la caché. Pulsa «Descargar bajadas» para añadir más.`);
     } else setEstado("Acerca el mapa a tu zona y pulsa «Descargar bajadas».");
-    try { geolocate.trigger(); } catch (e) {}   // al abrir, centra el mapa en tu posición (si das permiso)
+    try { ubic.centrarUnaVez(15); } catch (e) {}   // al abrir, centra el mapa en tu posición (si das permiso)
   } catch (e) {
     cargaLocalTerminada = true;
     setEstado("Error al iniciar el mapa: " + e.message);
@@ -1687,6 +1794,7 @@ function dibujarPerfil() {
      + `<circle id="pfPunto" r="4.5" fill="#fff" stroke="#1a1a1a" stroke-width="2" style="display:none"/></svg>`;
   cont.innerHTML = s;
   perfilGeom.X = X; perfilGeom.Y = Y;
+  actualizarYoPerfil();
 }
 
 function hoverPerfil(ev) {
@@ -1730,7 +1838,7 @@ function salirPerfil() {
   const linea = document.getElementById("pfLinea"), punto = document.getElementById("pfPunto");
   if (linea) linea.style.display = "none";
   if (punto) punto.style.display = "none";
-  document.getElementById("perfilInfo").textContent = "";
+  document.getElementById("perfilInfo").textContent = (typeof siguiendo !== "undefined" && siguiendo) ? textoSeguir : "";
   if (markerPerfil) markerPerfil.getElement().style.display = "none";
 }
 const perfilGrafEl = document.getElementById("perfilGraf");
@@ -1814,6 +1922,7 @@ function invalidarRuta() {
   if (srcSalto) srcSalto.setData({ type: "FeatureCollection", features: [] });
   document.getElementById("resumenRuta").innerHTML = "";
   document.getElementById("btnGenerar").textContent = "Generar ruta";
+  detenerSeguir(); mostrarBotonSeguir(false);
   ocultarPerfil(); actualizarPasos();
   if (hab) document.getElementById("estadoRuta").textContent = "";
 }
@@ -1853,6 +1962,7 @@ document.getElementById("btnGenerar").addEventListener("click", async () => {
     dibujarRuta(r.segmentos);
     mostrarPerfil(r.segmentos, r.stats, seleccion.filter(x => x.punto));
     document.getElementById("btnGenerar").textContent = "Descargar GPX";
+    mostrarBotonSeguir(true);
     const sinEvitar = r.segmentos.filter(sg => sg.tipo === "enlace" && sg.conNogo === false).length;
     estado.textContent = "Ruta lista. Revísala en el mapa y descarga el GPX."
       + (sinEvitar ? ` ⚠ ${sinEvitar} enlace${sinEvitar === 1 ? "" : "s"} no ha${sinEvitar === 1 ? "" : "n"} podido evitar subir por alguna bajada.` : "");
@@ -1888,6 +1998,137 @@ document.getElementById("btnBorrarTodo").addEventListener("click", () => {
   document.getElementById("estadoRuta").textContent = "";
   ajustarVista();
 });
+
+// ---- Seguir ruta: tu posición en el mapa y en el perfil de altimetría ----
+let siguiendo = false, seguirPts = null, seguirUlt = null, textoSeguir = "", wakeLock = null;
+const btnSeguir = document.getElementById("btnSeguir");
+
+function mostrarBotonSeguir(ver) {
+  btnSeguir.hidden = !ver;
+  document.getElementById("botonesRuta").classList.toggle("dos", ver);
+}
+
+// Recorrido completo (sin reducir) con distancia acumulada, para situarte con precisión
+function construirSeguirPts(segmentos) {
+  const pts = []; let d = 0, prev = null, eleAnt = null;
+  for (const sg of segmentos) for (const p of sg.puntos) {
+    if (prev) d += haversine([prev[0], prev[1]], [p[0], p[1]]);
+    prev = p;
+    const ele = (p[2] === null || p[2] === undefined) ? eleAnt : p[2];
+    if (ele !== null) eleAnt = ele;
+    pts.push({ d, ele, lat: p[0], lon: p[1] });
+  }
+  const primero = pts.find(q => q.ele !== null);
+  pts.forEach(q => { if (q.ele === null) q.ele = primero ? primero.ele : null; });
+  return pts;
+}
+
+function idxPorDist(d) {   // último punto con distancia acumulada <= d
+  const P = seguirPts; let a = 0, b = P.length - 1;
+  while (b - a > 1) { const m = (a + b) >> 1; if (P[m].d <= d) a = m; else b = m; }
+  return a;
+}
+
+// Proyecta tu posición sobre la ruta: devuelve distancia recorrida, cota y a cuántos metros estás de la línea
+function snapRuta(lat, lon) {
+  const P = seguirPts, kx = 111320 * Math.cos(lat * Math.PI / 180), ky = 111320;
+  const evaluar = (i0, i1) => {
+    let best = null;
+    for (let i = i0; i < i1; i++) {
+      const a = P[i], b = P[i + 1];
+      const ax = (a.lon - lon) * kx, ay = (a.lat - lat) * ky, bx = (b.lon - lon) * kx, by = (b.lat - lat) * ky;
+      const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+      const t = l2 > 0 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l2)) : 0;
+      const dist = Math.hypot(ax + t * dx, ay + t * dy);
+      if (!best || dist < best.dist - 5) best = { dist, i, t };   // a igualdad (±5 m) se queda el primer paso
+    }
+    return best;
+  };
+  let r = null;
+  if (seguirUlt) {   // se busca cerca de donde ibas (no salta a otro tramo que pase por el mismo sitio)
+    const i0 = idxPorDist(Math.max(0, seguirUlt.d - 250)), i1 = Math.min(P.length - 1, idxPorDist(seguirUlt.d + 1000) + 1);
+    if (i1 > i0) r = evaluar(i0, i1);
+  }
+  if (!r || r.dist > 60) {
+    const g = evaluar(0, P.length - 1);
+    if (g && (!r || g.dist < r.dist - 40)) r = g;
+  }
+  const a = P[r.i], b = P[r.i + 1];
+  return { d: a.d + r.t * (b.d - a.d), ele: (a.ele === null || b.ele === null) ? null : a.ele + r.t * (b.ele - a.ele), dist: r.dist, i: r.i };
+}
+
+function seguirActualizar() {
+  if (!siguiendo || !seguirPts || seguirPts.length < 2 || !ubic.pos) return;
+  const s = snapRuta(ubic.pos.lat, ubic.pos.lon);
+  seguirUlt = s;
+  const total = seguirPts[seguirPts.length - 1].d, P = seguirPts;
+  let i0 = s.i, i1 = s.i + 1;
+  while (i0 > 0 && s.d - P[i0].d < 30) i0--;
+  while (i1 < P.length - 1 && P[i1].d - s.d < 30) i1++;
+  const dd = P[i1].d - P[i0].d;
+  const pend = (dd > 5 && P[i1].ele !== null && P[i0].ele !== null) ? (P[i1].ele - P[i0].ele) / dd * 100 : null;
+  const km = m => (m / 1000).toFixed(2).replace(".", ",");
+  let t = `Tú · km ${km(s.d)}` + (s.ele !== null ? ` · ${Math.round(s.ele)} m` : "")
+        + (pend !== null ? ` · ${pend > 0 ? "+" : pend < 0 ? "−" : ""}${Math.abs(pend).toFixed(0)} %` : "")
+        + ` · faltan ${km(Math.max(0, total - s.d))} km`;
+  if (s.dist > 40) t += ` · ⚠ a ${Math.round(s.dist)} m de la ruta`;
+  textoSeguir = t;
+  const info = document.getElementById("perfilInfo");
+  if (info) info.textContent = t;
+  actualizarYoPerfil();
+}
+
+// Marca tu posición en el gráfico de altimetría
+function actualizarYoPerfil() {
+  const cont = document.getElementById("perfilGraf"), svg = cont && cont.querySelector("svg");
+  if (!svg) return;
+  let g = svg.querySelector("#pfYo");
+  if (!siguiendo || !seguirUlt || seguirUlt.ele === null || !perfilGeom || !perfilGeom.X) { if (g) g.remove(); return; }
+  const NS = "http://www.w3.org/2000/svg";
+  if (!g) {
+    g = document.createElementNS(NS, "g"); g.setAttribute("id", "pfYo"); g.setAttribute("pointer-events", "none");
+    const l = document.createElementNS(NS, "line"); l.setAttribute("stroke", "#1a73e8"); l.setAttribute("stroke-width", "2");
+    const c = document.createElementNS(NS, "circle"); c.setAttribute("r", "7"); c.setAttribute("stroke", "#fff"); c.setAttribute("stroke-width", "2.5");
+    g.appendChild(l); g.appendChild(c); svg.appendChild(g);
+  }
+  const x = perfilGeom.X(seguirUlt.d), y = perfilGeom.Y(seguirUlt.ele), H = cont.clientHeight;
+  const l = g.firstChild, c = g.lastChild;
+  l.setAttribute("x1", x); l.setAttribute("x2", x); l.setAttribute("y1", 8); l.setAttribute("y2", H - 18);
+  c.setAttribute("cx", x); c.setAttribute("cy", y);
+  c.setAttribute("fill", seguirUlt.dist > 40 ? "#e65100" : "#1a73e8");
+}
+
+async function pedirWakeLock() {   // mantiene la pantalla encendida mientras sigues la ruta
+  try { if (navigator.wakeLock && siguiendo && document.visibilityState === "visible") wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+}
+document.addEventListener("visibilitychange", () => { if (siguiendo) pedirWakeLock(); });
+
+function iniciarSeguir() {
+  if (!rutaGenerada) return;
+  seguirPts = construirSeguirPts(rutaGenerada.segmentos);
+  if (seguirPts.length < 2) return;
+  siguiendo = true; seguirUlt = null; textoSeguir = "";
+  btnSeguir.classList.add("activo"); btnSeguir.textContent = "■ Parar";
+  document.getElementById("mapwrap").classList.add("conPerfil");   // por si habías cerrado el perfil
+  dibujarPerfil();
+  setPanel(false);
+  ubic.activar(16);
+  if (ubic.pos) seguirActualizar(); else { document.getElementById("perfilInfo").textContent = "Buscando tu posición GPS…"; }
+  pedirWakeLock();
+}
+
+function detenerSeguir() {
+  if (!siguiendo && !btnSeguir.classList.contains("activo")) return;
+  siguiendo = false; seguirUlt = null; seguirPts = null; textoSeguir = "";
+  clearTimeout(ubic.pausaT);
+  btnSeguir.classList.remove("activo"); btnSeguir.textContent = "▶ Seguir ruta";
+  actualizarYoPerfil();
+  const info = document.getElementById("perfilInfo"); if (info) info.textContent = "";
+  try { if (wakeLock) wakeLock.release(); } catch (e) {}
+  wakeLock = null;
+}
+
+btnSeguir.addEventListener("click", () => { if (siguiendo) detenerSeguir(); else iniciarSeguir(); });
 
 // ---- Configuración: caché de bajadas ----
 const cfgEl = document.getElementById("config");
