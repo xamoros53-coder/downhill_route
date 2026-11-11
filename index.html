@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>MTB Ride Planner</title>
-<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<link href="./lib/maplibre-gl.css" rel="stylesheet" />
 <style>
   :root {
     --verde: #2e9e4f;
@@ -522,7 +522,7 @@ document.title = document.title + " · " + window.APP_VERSION;
 if (navigator.serviceWorker) navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => { console.log("[app] service worker eliminado", r.scope); r.unregister(); })).catch(() => {});
 if (window.caches) caches.keys().then(ks => ks.forEach(k => { console.log("[app] caché eliminada", k); caches.delete(k); })).catch(() => {});
 </script>
-<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="./lib/maplibre-gl.js"></script>
 <script src="osm.js"></script>
 <script src="elevacion.js"></script>
 <script src="ruta.js"></script>
