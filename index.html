@@ -195,6 +195,8 @@
   .resultado-busqueda small { display:block; color:#777; font-size:12px; margin-top:1px; }
   .resultado-busqueda.btn-lugar { color:#1f6fd1; font-weight:600; }
   .ctrl-base { font-size:16px; line-height:1; }
+  .maplibregl-ctrl-group button.ctrl-capas { display:flex; align-items:center; justify-content:center; }
+  .maplibregl-ctrl-group button.ctrl-3d { font-weight:700; font-size:13px; }
 
   /* ===== Configuración ===== */
   #config { border-top: 1px solid #edf0f2; padding-top: 4px; }
@@ -531,24 +533,40 @@ const CATS = ["verde", "azul", "rojo", "negro", "sin"];
 let baseSat = false;   // false = mapa OSM, true = satélite (se recuerda la última elección)
 try { baseSat = localStorage.getItem("baseMapa") === "sat"; } catch (e) {}
 
+// ---- Mapa base: OpenFreeMap (datos de OpenStreetMap; gratuito, sin clave, uso comercial permitido) ----
+// Estilos disponibles: "liberty" (el más detallado), "bright", "positron" (gris claro, ideal para resaltar las bajadas)
+const ESTILO_MAPA = "liberty";
+
+const SAT_FUENTE = { type: "raster", tiles: ["https://www.ign.es/wmts/pnoa-ma?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=OI.OrthoimageCoverage&STYLE=default&FORMAT=image/jpeg&TILEMATRIXSET=GoogleMapsCompatible&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}"], tileSize: 256, maxzoom: 19, attribution: 'Ortofoto PNOA © <a href="https://www.ign.es/" target="_blank" rel="noopener">Instituto Geográfico Nacional</a> (CC BY 4.0)' };
+// Crea (si no existe) la capa de satélite, siempre por debajo de las capas de la app
+function asegurarSat() {
+  try {
+    if (!map.getSource("sat")) map.addSource("sat", SAT_FUENTE);
+    if (!map.getLayer("sat")) {
+      const antes = ["tramos-halo", "tramos-line", "puntos-inicio"].find(id => map.getLayer(id));
+      map.addLayer({ id: "sat", type: "raster", source: "sat", layout: { visibility: baseSat ? "visible" : "none" } }, antes);
+    }
+    return true;
+  } catch (e) {
+    console.error("[satélite]", e);
+    try { toast("No se pudo preparar el satélite: " + e.message); } catch (e2) {}
+    return false;
+  }
+}
+
 const map = new maplibregl.Map({
   container: "map",
-  style: {
-    version: 8,
-    sources: {
-      osm: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, attribution: "© OpenStreetMap contributors" },
-      sat: { type: "raster", tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"], tileSize: 256, maxzoom: 19, attribution: "Imágenes © Esri, Maxar, Earthstar Geographics y la comunidad GIS" }
-    },
-    layers: [
-      { id: "osm", type: "raster", source: "osm", layout: { visibility: baseSat ? "none" : "visible" } },
-      { id: "sat", type: "raster", source: "sat", layout: { visibility: baseSat ? "visible" : "none" } }
-    ]
-  },
+  style: "https://tiles.openfreemap.org/styles/" + ESTILO_MAPA,
   center: [2.33, 41.52],
   zoom: 12,
-  customAttribution: 'Elevación: MDT05 © <a href="https://www.ign.es/" target="_blank" rel="noopener">IGN</a> (CC BY 4.0) · respaldo: Copernicus DEM vía <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>'
+  customAttribution: 'Búsqueda: © <a href="https://www.cartociudad.es/" target="_blank" rel="noopener">CartoCiudad</a> IGN (CC BY 4.0) · Bajadas: datos © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">colaboradores de OpenStreetMap</a> (ODbL) · Elevación: MDT05 © <a href="https://www.ign.es/" target="_blank" rel="noopener">IGN</a> (CC BY 4.0)'
 });
 
+map.on("error", (ev) => {
+  const m = ev && ev.error && ev.error.message ? ev.error.message : "";
+  console.error("[mapa]", ev && ev.error);
+  if (ev && ev.sourceId === undefined && m) { try { toast("Mapa: " + m); } catch (e) {} }   // errores de estilo (no de teselas sueltas)
+});
 map.addControl(new maplibregl.NavigationControl(), "top-right");
 // ---- Mi ubicación: punto azul que te sigue + botón ◎ para centrar el mapa en ti ----
 // Orientación del mapa al seguir la ruta: "norte" (norte arriba) o "marcha" (el mapa gira según hacia dónde avanzas)
@@ -686,7 +704,7 @@ class BaseMapaControl {
     this._c = document.createElement("div");
     this._c.className = "maplibregl-ctrl maplibregl-ctrl-group";
     this._b = document.createElement("button");
-    this._b.type = "button"; this._b.className = "ctrl-base";
+    this._b.type = "button"; this._b.className = "ctrl-base ctrl-capas";
     this._b.addEventListener("click", () => ponerBase(!baseSat));
     this._c.appendChild(this._b);
     this.refrescar();
@@ -694,16 +712,16 @@ class BaseMapaControl {
   }
   onRemove() { this._c.remove(); }
   refrescar() {
-    const t = baseSat ? "Ver mapa normal" : "Ver satélite";
-    this._b.textContent = baseSat ? "🗺" : "🛰";
+    const t = baseSat ? "Cambiar a mapa de senderos" : "Cambiar a satélite";
+    this._b.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>';
+    this._b.style.color = baseSat ? "#1f6fd1" : "";   // azul = satélite activo
     this._b.title = t; this._b.setAttribute("aria-label", t);
   }
 }
 const baseControl = new BaseMapaControl();
 function ponerBase(sat) {
-  if (!map.getLayer("sat")) return;
   baseSat = sat;
-  map.setLayoutProperty("osm", "visibility", sat ? "none" : "visible");
+  if (!asegurarSat()) { baseSat = !sat; return; }
   map.setLayoutProperty("sat", "visibility", sat ? "visible" : "none");
   baseControl.refrescar();
   try { localStorage.setItem("baseMapa", sat ? "sat" : "osm"); } catch (e) {}
@@ -718,7 +736,6 @@ class Mapa3DControl {
     this._c.className = "maplibregl-ctrl maplibregl-ctrl-group";
     this._b = document.createElement("button");
     this._b.type = "button"; this._b.className = "ctrl-base ctrl-3d";
-    this._b.textContent = "3D";
     this._b.addEventListener("click", () => poner3D(!en3D));
     this._c.appendChild(this._b);
     this.refrescar();
@@ -726,10 +743,10 @@ class Mapa3DControl {
   }
   onRemove() { this._c.remove(); }
   refrescar() {
-    const t = en3D ? "Desactivar vista 3D" : "Activar vista 3D";
+    const t = en3D ? "Volver a vista 2D" : "Activar vista 3D";
+    this._b.textContent = en3D ? "2D" : "3D";   // muestra el modo al que cambiarás al pulsar
     this._b.title = t; this._b.setAttribute("aria-label", t);
-    this._b.style.fontWeight = en3D ? "700" : "400";
-    this._b.style.color = en3D ? "#1f6fd1" : "";
+    this._b.style.color = en3D ? "#1f6fd1" : "";   // azul = vista 3D activa
   }
 }
 const control3D = new Mapa3DControl();
@@ -741,8 +758,8 @@ function poner3D(on) {
         map.addSource("dem", {
           type: "raster-dem",
           tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"],
-          encoding: "terrarium", tileSize: 256, maxzoom: 15,
-          attribution: "Relieve: Mapzen / AWS Terrain Tiles"
+          encoding: "terrarium", tileSize: 256, maxzoom: 14,   // 14 = el máximo de las teselas de OpenFreeMap; con 15 el relieve no casa con el mapa a zoom alto
+          attribution: 'Relieve 3D: <a href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md" target="_blank" rel="noopener">Terrain Tiles © Mapzen y fuentes (SRTM, Copernicus, etc.)</a>'
         });
       }
       map.setTerrain({ source: "dem", exaggeration: 1.3 });
@@ -751,7 +768,7 @@ function poner3D(on) {
       map.setTerrain(null);
       map.easeTo({ pitch: 0, bearing: 0, duration: 800 });
     }
-  } catch (e) { en3D = false; setEstado("No se pudo activar la vista 3D."); }
+  } catch (e) { en3D = false; console.error("[3D]", e); setEstado("No se pudo activar la vista 3D."); try { toast("Vista 3D: " + e.message, 15000); } catch (e2) {} }
   control3D.refrescar();
 }
 map.addControl(control3D, "top-right");
@@ -975,7 +992,7 @@ function renderMiRuta() {
       if (!esP && !f) return;
       const el = document.createElement("div"); el.className = "item" + (esP ? " punto-inter" : ""); el.dataset.id = id;
       let marca, nombre;
-      if (esP) { nPun++; marca = `<span class="pin">📍</span>`; const pt = puntosInter.get(id); nombre = (pt && pt[2]) ? pt[2] : `Punto ${nPun}`; }
+      if (esP) { nPun++; marca = `<span class="pin">📍</span>`; const pt = puntosInter.get(id); nombre = (pt && pt[2]) ? `Punto ${nPun} · ${pt[2]}` : `Punto ${nPun}`; }
       else {
         const p = f.properties;
         marca = `<span class="punto" style="background:${colorDe(p)}"></span>`; nombre = p.nombre || "(sin nombre)";
@@ -1049,7 +1066,7 @@ map.on("click", (e) => {
     <div id="lugarPunto" style="font-weight:600;color:#243746">Buscando el lugar…</div>
     <div style="color:#8a939b;font-size:11px;margin-top:2px">${lat.toFixed(5)}, ${lon.toFixed(5)}</div>
     <button class="popup-add" data-a="inter">📍 Añadir punto</button>`;
-  lugarP.then(n => { const el = cont.querySelector("#lugarPunto"); if (el) el.textContent = n || "Punto en el mapa"; });
+  lugarP.then(n => { const el = cont.querySelector("#lugarPunto"); if (el) el.textContent = n ? "Punto en " + n : "Punto en el mapa"; });
   cont.addEventListener("click", async (ev) => {
     const btn = ev.target.closest("button[data-a]"); if (!btn) return;
     ev.stopPropagation();
@@ -1065,25 +1082,22 @@ map.on("click", (e) => {
   popupPunto.on("close", () => { popupPunto = null; });
 });
 
-// Nombre legible de un sitio (calle + localidad, o el lugar si lo tiene) con Nominatim / OpenStreetMap
+// Municipio de un punto con el geocodificador inverso de CartoCiudad (IGN, CC BY 4.0). Devuelve solo el municipio
+// (no la calle más cercana, que en el monte puede estar a kilómetros) o null si no hay dato.
 async function nombreDeLugar(lat, lon) {
   const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), 4000);
   try {
-    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=17&accept-language=es&lat=${lat}&lon=${lon}`, { signal: ctrl.signal });
-    if (!r.ok) return null;
-    const j = await r.json(), ad = j.address || {};
-    const sitio = j.name || ad.road || ad.path || ad.track || ad.neighbourhood || ad.suburb || null;
-    const zona = ad.village || ad.town || ad.city || ad.hamlet || ad.municipality || ad.county || null;
-    const partes = [sitio, zona].filter((x, i, a) => x && a.indexOf(x) === i);
-    return partes.length ? partes.join(", ") : null;
+    const j = await cartoPedir("reverseGeocode", { lat: lat.toFixed(6), lon: lon.toFixed(6) }, ctrl.signal);
+    const muni = j && typeof j.muni === "string" ? j.muni.trim() : "";
+    return muni || null;
   } catch (e) { return null; }
   finally { clearTimeout(t); }
 }
 
 let toastT = null;
-function toast(msg) {
+function toast(msg, ms = 2200) {
   const el = document.getElementById("toast"); el.firstElementChild.textContent = msg; el.classList.add("on");
-  clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("on"), 2200);
+  clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("on"), ms);
 }
 const PASOS_INFO = {
   1: "<b>Descargar bajadas:</b> acerca el mapa a la zona donde vas a rodar y pulsa «Descargar bajadas» (botón de arriba). Si quieres incluir senderos sin etiqueta MTB, marca la casilla antes de pulsar.",
@@ -1145,7 +1159,6 @@ function fmtLong(m) { return m >= 1000 ? (m / 1000).toFixed(2).replace(".", ",")
 function badgeFiab(p) { return p.fiabilidad === "osm" ? `<span class="badge osm">OSM</span>` : `<span class="badge det">detectada</span>`; }
 
 function setEstado(msg) { document.getElementById("estadoRuta").textContent = msg || ""; }
-window.Elev.aviso = setEstado;   // esperas por límite de peticiones de Open-Meteo (solo el respaldo)
 
 // ---- Caché en el móvil: todas las bajadas cargadas se guardan en IndexedDB y reaparecen al abrir la app ----
 const IDB_NOMBRE = "ridebajadas_v1";
@@ -1193,10 +1206,11 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 window.addEventListener("pagehide", () => { if (guardadoPendiente) { clearTimeout(idbTimer); volcarBajadasLocal(); } });
 // Pide al navegador que no borre estos datos cuando necesite espacio
 try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
-// Los perfiles guardados antes de usar el MDT05 del IGN (sin "fuente_elev") se recalculan al abrir la bajada.
+// Los perfiles guardados antes de usar el MDT05 del IGN (sin "fuente_elev") o calculados con el antiguo respaldo
+// de Open-Meteo se recalculan al abrir la bajada.
 function marcarPerfilObsoleto(f) {
   const p = f && f.properties;
-  if (p && p.perfil_cargado && !p.fuente_elev) p.perfil_cargado = false;
+  if (p && p.perfil_cargado && (!p.fuente_elev || p.fuente_elev === "openmeteo")) p.perfil_cargado = false;
 }
 async function cargarBajadasLocales() {
   try {
@@ -1219,8 +1233,12 @@ async function cargarBajadasLocales() {
   } catch (e) { console.error("No se pudieron leer las bajadas guardadas:", e); return 0; }
 }
 
-map.on("load", async () => {
+let appIniciada = false;
+async function iniciarApp() {
+  if (appIniciada) return;
+  appIniciada = true;
   try {
+    asegurarSat();   // satélite (ortofoto PNOA del IGN), bajo las capas de la app
     await cargarCapas();
     try { const rd = localStorage.getItem(STORAGE_DESCARTADAS); if (rd) descartadas = new Set(JSON.parse(rd)); } catch (e) {}
     const nLocal = await cargarBajadasLocales();
@@ -1237,7 +1255,12 @@ map.on("load", async () => {
     setEstado("Error al iniciar el mapa: " + e.message);
     console.error(e);
   }
-});
+}
+map.on("load", iniciarApp);
+// Respaldo: si el evento "load" no llega (estilos externos), se arranca igualmente cuando el estilo está cargado
+map.once("style.load", () => setTimeout(() => {
+  if (!appIniciada) { console.warn("[mapa] «load» no llegó; arrancando con style.load"); iniciarApp(); }
+}, 4000));
 
 // Vuelca las bajadas cargadas (y sus trozos de color y extremos) a las capas del mapa
 function actualizarMapa() {
@@ -1347,19 +1370,24 @@ async function cargarZona() {
       const fr = total ? hecho / total : null;
       prog.set(`${nuevos.length} bajadas encontradas · comprobando sentido: ${fr === null ? 0 : Math.min(nuevos.length, Math.round(fr * nuevos.length))}/${nuevos.length}`, fr);
     });
-    let validas = 0, dudosas = 0;
+    let validas = 0, dudosas = 0, sinCota = 0;
     for (const c of nuevos) {
       const ini = c.pts[0], fin = c.pts[c.pts.length - 1];
-      const r = OSM.evaluar(c, Elev.ele(ini[0], ini[1]), Elev.ele(fin[0], fin[1]));
-      if (!r) { dudosas++; porId.delete(c.id); tramosPorId.delete(c.id); tiempoCarga.delete(c.id); continue; }   // ante la duda, no se muestra
+      const e0 = Elev.ele(ini[0], ini[1]), e1 = Elev.ele(fin[0], fin[1]);
+      const hayCota = Number.isFinite(e0) && Number.isFinite(e1);
+      const r = hayCota ? OSM.evaluar(c, e0, e1) : null;   // sin cota del IGN (fuera de España): no se puede comprobar el sentido
+      if (!r) { if (hayCota) dudosas++; else sinCota++; porId.delete(c.id); tramosPorId.delete(c.id); tiempoCarga.delete(c.id); continue; }   // ante la duda, no se muestra
       porId.set(c.id, r.feature); tramosPorId.set(c.id, r.tramos); tiempoCarga.set(c.id, Date.now()); validas++;
     }
     console.log("[zona] elevación+evaluación", Math.round(performance.now() - t1), "ms");
     actualizarMapa();
     guardarBajadasLocal();
+    const aviso = sinCota ? ` · ${sinCota} sin datos de elevación (la app solo cubre España)` : "";
     const msg = validas
-      ? `${validas} bajada${validas === 1 ? "" : "s"} cargada${validas === 1 ? "" : "s"} · ${dudosas} descartada${dudosas === 1 ? "" : "s"} por sentido dudoso`
-      : `No hay bajadas con sentido fiable (${dudosas} descartada${dudosas === 1 ? "" : "s"} por sentido dudoso).`;
+      ? `${validas} bajada${validas === 1 ? "" : "s"} cargada${validas === 1 ? "" : "s"} · ${dudosas} descartada${dudosas === 1 ? "" : "s"} por sentido dudoso${aviso}`
+      : (sinCota && !dudosas
+          ? "Esta zona queda fuera de la cobertura de elevación (la app solo cubre España)."
+          : `No hay bajadas con sentido fiable (${dudosas} descartada${dudosas === 1 ? "" : "s"} por sentido dudoso${aviso}).`);
     setEstado(msg);
     toast(validas ? `✓ ${validas} bajada${validas === 1 ? "" : "s"} cargada${validas === 1 ? "" : "s"}` : "No hay bajadas con sentido fiable");
   } catch (e) {
@@ -1719,7 +1747,7 @@ function actualizarBusqueda() {
       busquedaResultados.appendChild(b);
     });
   }
-  // Los lugares se buscan al pulsar Intro o este botón (Nominatim no admite autocompletado)
+  // Los lugares se buscan al pulsar Intro o este botón (una petición por búsqueda, no por cada letra)
   const zona = document.createElement("div");
   const bl = document.createElement("button"); bl.type = "button"; bl.className = "resultado-busqueda btn-lugar";
   bl.textContent = `🔎 Buscar «${texto}» como lugar`;
@@ -1730,36 +1758,71 @@ function actualizarBusqueda() {
     const v = document.createElement("div"); v.className = "resultado-vacio"; v.textContent = "Ninguna bajada con ese nombre."; busquedaResultados.insertBefore(v, zona);
   }
 }
+// ---- Búsqueda de lugares: geocodificador de CartoCiudad (IGN/CNIG). Uso libre y gratuito, también comercial, citando la fuente (CC BY 4.0) ----
+const CARTO_URL = "https://www.cartociudad.es/geocoder/api/geocoder/";
+let cartoModo = null;   // "fetch" (llamada directa) o "jsonp" (respaldo si el navegador bloquea la llamada directa)
+function cartoJsonp(metodo, params) {
+  return new Promise((ok, ko) => {
+    const cb = "cc_" + Math.random().toString(36).slice(2), sc = document.createElement("script");
+    const fin = () => { clearTimeout(tm); delete window[cb]; sc.remove(); };
+    const tm = setTimeout(() => { fin(); ko(new Error("tiempo agotado")); }, 7000);
+    window[cb] = (d) => { fin(); ok(d); };
+    sc.onerror = () => { fin(); ko(new Error("no se pudo conectar")); };
+    sc.src = CARTO_URL + metodo + "Jsonp?" + new URLSearchParams({ ...params, callback: cb });
+    document.head.appendChild(sc);
+  });
+}
+async function cartoPedir(metodo, params, signal) {
+  if (cartoModo !== "jsonp") {
+    try {
+      const r = await fetch(CARTO_URL + metodo + "?" + new URLSearchParams(params), { signal });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const j = await r.json(); cartoModo = "fetch"; return j;
+    } catch (e) {
+      if (e.name === "AbortError" || cartoModo === "fetch") throw e;   // si ya sabemos que la llamada directa funciona, el fallo es otro
+    }
+  }
+  const j = await cartoJsonp(metodo, params); cartoModo = "jsonp"; return j;
+}
+const CARTO_TIPOS = {   // tipo de CartoCiudad → etiqueta y zoom al ir allí
+  ngbe: ["Montaña o paraje", 14], toponimo: ["Lugar", 14], poblacion: ["Población", 13], municipio: ["Municipio", 12],
+  callejero: ["Calle", 16], carreteras: ["Carretera", 15], portal: ["Dirección", 17], provincia: ["Provincia", 9], "comunidad autonoma": ["Comunidad", 8]
+};
 async function buscarLugares(texto, zona) {
   const mi = ++seqLugares;
   zona.innerHTML = '<div class="resultado-vacio">Buscando lugares…</div>';
-  const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), 7000);
+  const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), 8000);
   try {
-    const bb = map.getBounds();   // sesga los resultados hacia lo que se ve en el mapa
-    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=es&q=${encodeURIComponent(texto)}`
-      + `&viewbox=${bb.getWest()},${bb.getNorth()},${bb.getEast()},${bb.getSouth()}`;
-    const r = await fetch(url, { signal: ctrl.signal });
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    const lista = await r.json();
+    const lista = (await cartoPedir("candidates", { q: texto, limit: 12, no_process: "expendeduria,punto_recarga_electrica" }, ctrl.signal))
+      .filter(p => CARTO_TIPOS[p.type]);   // se descartan códigos postales, referencias catastrales, etc.
     if (mi !== seqLugares) return;
     zona.innerHTML = "";
     const h = document.createElement("div"); h.className = "res-grupo"; h.textContent = "Lugares"; zona.appendChild(h);
     if (!lista.length) { zona.insertAdjacentHTML("beforeend", '<div class="resultado-vacio">No se ha encontrado ningún lugar.</div>'); return; }
     lista.forEach(p => {
-      const partes = String(p.display_name || "").split(",").map(x => x.trim());
+      const [etiqueta, zoom] = CARTO_TIPOS[p.type];
+      const donde = [p.muni, p.province].filter((x, i, a) => x && a.indexOf(x) === i && x !== p.address).join(", ");
       const b = document.createElement("button"); b.type = "button"; b.className = "resultado-busqueda";
-      b.innerHTML = `${esc(partes[0] || "Lugar")}<small>${esc(partes.slice(1, 4).join(", "))}</small>`;
-      b.addEventListener("click", () => {
+      b.innerHTML = `${esc(p.address || "Lugar")}<small>${esc([etiqueta, donde].filter(Boolean).join(" · "))}</small>`;
+      b.addEventListener("click", async () => {
+        let lat = Number(p.lat), lng = Number(p.lng);
+        if (!(isFinite(lat) && isFinite(lng) && (lat || lng))) {   // poblaciones, municipios…: «candidates» no da coordenadas, «find» sí
+          try {
+            const d = await cartoPedir("find", { q: p.address, type: p.type, id: p.id }, undefined);
+            lat = Number(d.lat); lng = Number(d.lng);
+          } catch (e) {}
+        }
+        if (!(isFinite(lat) && isFinite(lng)) || (!lat && !lng)) { toast("No se pudo situar ese lugar"); return; }
         cerrarBusqueda();
-        if (p.boundingbox) { const [s, n, w, e] = p.boundingbox.map(Number); map.fitBounds([[w, s], [e, n]], { padding: 40, maxZoom: 15, duration: 600 }); }
-        else map.flyTo({ center: [+p.lon, +p.lat], zoom: 14 });
+        map.flyTo({ center: [lng, lat], zoom, duration: 700 });
         if (marcadorLugar) marcadorLugar.remove();
-        const mk = marcadorLugar = new maplibregl.Marker({ color: "#d62f2f" }).setLngLat([+p.lon, +p.lat]).addTo(map);
+        const mk = marcadorLugar = new maplibregl.Marker({ color: "#d62f2f" }).setLngLat([lng, lat]).addTo(map);
         setTimeout(() => { mk.remove(); if (marcadorLugar === mk) marcadorLugar = null; }, 20000);
       });
       zona.appendChild(b);
     });
   } catch (e) {
+    console.error("[búsqueda]", e);
     if (mi === seqLugares) zona.innerHTML = '<div class="resultado-vacio">No se pudo buscar el lugar. Revisa la conexión.</div>';
   } finally { clearTimeout(t); }
 }
@@ -2203,7 +2266,7 @@ document.getElementById("btnGenerar").addEventListener("click", async () => {
   if (!puedeGenerar()) return;
   let nPunto = 0;
   const seleccion = miRuta.map(id => {
-    if (esPunto(id)) { const pt = puntosInter.get(id); return pt ? { punto: true, lat: pt[0], lon: pt[1], nombre: (pt[2] || `Punto ${++nPunto}`) } : null; }
+    if (esPunto(id)) { const pt = puntosInter.get(id); return pt ? { punto: true, lat: pt[0], lon: pt[1], nombre: (pt[2] ? `Punto ${++nPunto} · ${pt[2]}` : `Punto ${++nPunto}`) } : null; }
     return porId.get(id);
   }).filter(Boolean);
   const soloBajadas = seleccion.filter(x => !x.punto);

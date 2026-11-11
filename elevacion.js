@@ -1,9 +1,8 @@
-// elevacion.js — elevación desde el MDT05 del IGN (teselas Terrain-RGB, malla de 5 m) con respaldo
-// en Open-Meteo (Copernicus DEM, ~90 m) para los puntos que el IGN no cubre. Caché en localStorage.
-// Expone window.Elev. Todo el acceso a las fuentes de elevación está en este archivo.
+// elevacion.js — elevación desde el MDT05 del IGN (teselas Terrain-RGB, malla de 5 m). Caché en localStorage.
+// Expone window.Elev. Todo el acceso a la fuente de elevación está en este archivo.
+// Los puntos que el IGN no cubre (fuera de España) se quedan sin cota: no hay servicio de respaldo.
 //
 // Atribución: MDT05 © Instituto Geográfico Nacional de España (CC BY 4.0).
-//             Respaldo: Copernicus DEM + Open-Meteo.
 (function () {
   "use strict";
 
@@ -16,13 +15,6 @@
   const CONC_TESELAS = 6;        // descargas de teselas a la vez
   const REINTENTOS_TESELA = 2;
 
-  // --- Open-Meteo (solo respaldo) ----------------------------------------------
-  const URL_OM = "https://api.open-meteo.com/v1/elevation";
-  const LOTE = 100;              // máximo de coordenadas por petición
-  const PAUSA_MS = 150;          // pausa entre lotes de un mismo hilo
-  const CONCURRENCIA = 3;        // lotes pedidos a la vez (si Open-Meteo responde 429, baja este valor)
-  const REINTENTOS = 5;
-
   // --- Perfil de una bajada -----------------------------------------------------
   const PASO_M = 20;             // distancia entre puntos del perfil (con DEM de 90 m eran 30)
   const VENTANA_SUAVIZADO = 3;   // muestras (con DEM de 90 m eran 5)
@@ -31,15 +23,15 @@
   const STORAGE_CACHE_ANTIGUA = "elev_cache_v1";   // cotas de Open-Meteo sin indicar fuente: se borra
   const MAX_CACHE = 40000;
 
-  const api = { aviso: null, FUENTE };   // api.aviso(msg): el index lo usa para mostrar esperas
+  const api = { FUENTE };
 
   // --- caché persistente ------------------------------------------------------
-  // Claves: "<zoom>|lat,lon" (IGN, según el zoom con que se muestreó) y "om|lat,lon" (respaldo Open-Meteo).
+  // Claves: "<zoom>|lat,lon" (IGN, según el zoom con que se muestreó).
   const cache = new Map();
   try {
     localStorage.removeItem(STORAGE_CACHE_ANTIGUA);
     const raw = localStorage.getItem(STORAGE_CACHE);
-    if (raw) for (const [k, v] of JSON.parse(raw)) cache.set(k, v);
+    if (raw) for (const [k, v] of JSON.parse(raw)) if (!String(k).startsWith("om|")) cache.set(k, v);   // las cotas de Open-Meteo de versiones anteriores se descartan
   } catch (e) { /* caché ilegible: empezamos vacía */ }
 
   let timerGuardar = null;
@@ -55,7 +47,6 @@
 
   const clave = (lat, lon) => lat.toFixed(5) + "," + lon.toFixed(5);
   const kz = (z, k) => z + "|" + k;
-  const kom = k => "om|" + k;
   const dormir = ms => new Promise(r => setTimeout(r, ms));
   const r6 = x => Math.round(x * 1e6) / 1e6;
 
@@ -111,7 +102,8 @@
     return { w, h, v };
   }
 
-  // Devuelve la tesela decodificada, o null si no hay datos (404 / fallo repetido). null no tumba nada: el punto pasa al respaldo.
+  // Devuelve la tesela decodificada, o null si el IGN no tiene datos ahí (404 / 204). Si la descarga falla de forma
+  // repetida (red, servidor caído) lanza un error: así un fallo temporal no se confunde con "sin cobertura".
   async function cargarTesela(z, x, y) {
     const k = z + "/" + x + "/" + y;
     if (tesCache.has(k)) { const t = tesCache.get(k); tesCache.delete(k); tesCache.set(k, t); return t; }
@@ -131,10 +123,9 @@
           if (intento < REINTENTOS_TESELA) await dormir(1000 * (intento + 1));
         }
       }
-      if (definitivo) {   // un fallo de red no se recuerda: se reintentará la próxima vez
-        tesCache.set(k, tesela);
-        while (tesCache.size > MAX_TESELAS) tesCache.delete(tesCache.keys().next().value);
-      }
+      if (!definitivo) throw new Error("No se pudo descargar el relieve del IGN. Revisa tu conexión e inténtalo de nuevo.");   // no se recuerda: se reintentará
+      tesCache.set(k, tesela);
+      while (tesCache.size > MAX_TESELAS) tesCache.delete(tesCache.keys().next().value);
       return tesela;
     })();
     tesPend.set(k, prom);
@@ -158,72 +149,9 @@
     return peso > 0 ? suma / peso : NaN;
   }
 
-  // --- Open-Meteo: respaldo -----------------------------------------------------
-  async function pedirLote(lote) {
-    const lats = lote.map(p => p[0].toFixed(5)).join(",");
-    const lons = lote.map(p => p[1].toFixed(5)).join(",");
-    const url = `${URL_OM}?latitude=${lats}&longitude=${lons}`;
-    let ultimo = "";
-    for (let intento = 0; intento < REINTENTOS; intento++) {
-      try {
-        const r = await fetch(url);
-        if (r.ok) {
-          const data = await r.json();
-          if (!Array.isArray(data.elevation) || data.elevation.length !== lote.length) {
-            throw new Error("respuesta inesperada de Open-Meteo");
-          }
-          return data.elevation;
-        }
-        if (r.status === 429 || r.status >= 500) {
-          ultimo = r.status === 429 ? "Open-Meteo limita las peticiones" : "Open-Meteo no responde (HTTP " + r.status + ")";
-          const espera = 10 * (intento + 1);
-          if (api.aviso) api.aviso(`${ultimo}. Reintentando en ${espera} s…`);
-          await dormir(espera * 1000);
-          continue;
-        }
-        let motivo = "HTTP " + r.status;
-        try { const j = await r.json(); if (j && j.reason) motivo = j.reason; } catch (e) { /* sin cuerpo */ }
-        throw new Error("Open-Meteo rechazó la petición: " + motivo);
-      } catch (e) {
-        if (e instanceof TypeError) {   // fallo de red
-          ultimo = "sin conexión con Open-Meteo";
-          await dormir(3000 * (intento + 1));
-          continue;
-        }
-        throw e;
-      }
-    }
-    throw new Error(ultimo + ". Espera unos minutos y vuelve a intentarlo.");
-  }
-
-  // puntos: [[lat, lon, k], ...] sin cota del IGN
-  async function respaldoOpenMeteo(puntos, avance) {
-    const lotes = [];
-    for (let i = 0; i < puntos.length; i += LOTE) lotes.push(puntos.slice(i, i + LOTE));
-    let siguiente = 0, error = null;
-    async function hilo() {
-      while (!error) {
-        const idx = siguiente++;
-        if (idx >= lotes.length) return;
-        const lote = lotes[idx];
-        try {
-          const vals = await pedirLote(lote);
-          lote.forEach((p, j) => {
-            if (typeof vals[j] === "number" && Number.isFinite(vals[j])) cache.set(kom(p[2]), vals[j]);
-          });
-          guardarCache();
-          avance(lote.length);
-        } catch (e) { error = e; return; }
-        if (siguiente < lotes.length) await dormir(PAUSA_MS);
-      }
-    }
-    await Promise.all(Array.from({ length: Math.min(CONCURRENCIA, lotes.length) }, hilo));
-    if (error) throw error;
-  }
-
   /**
    * Rellena la caché con la elevación de las coordenadas que falten.
-   * Primero el IGN (por teselas); lo que no cubra va a Open-Meteo.
+   * Por teselas del IGN. Lo que el IGN no cubre se queda sin cota (Elev.ele devuelve undefined).
    * @param {Array} coords [[lat, lon], ...]
    * @param {Function} onProgreso (hechos, total)
    * @param {number} zoom zoom de las teselas (por defecto, el de cribado)
@@ -235,7 +163,7 @@
       const k = clave(lat, lon);
       if (vistos.has(k)) continue;
       vistos.add(k);
-      if (cache.has(kz(z, k)) || cache.has(kom(k))) continue;
+      if (cache.has(kz(z, k))) continue;
       faltan.push([lat, lon, k]);
     }
     if (!faltan.length) return;
@@ -268,14 +196,14 @@
     }
     await Promise.all(Array.from({ length: Math.min(CONC_TESELAS, lista.length) }, hiloTesela));
 
-    // 2) respaldo: puntos sin cobertura del IGN
-    if (sinDato.length) await respaldoOpenMeteo(sinDato, avance);
+    // Puntos sin cobertura del IGN: se dan por resueltos (sin cota) para que el progreso llegue al final
+    if (sinDato.length) avance(sinDato.length);
   }
 
-  // Cota de un punto ya obtenido con el zoom de cribado (la que usa el index para comprobar el sentido)
+  // Cota de un punto ya obtenido con el zoom de cribado (la que usa el index para comprobar el sentido); undefined si no hay dato
   function ele(lat, lon) {
     const k = clave(lat, lon), v = cache.get(kz(ZOOM_CRIBADO, k));
-    return v !== undefined ? v : cache.get(kom(k));
+    return v;
   }
 
   // --- perfil de una bajada ---------------------------------------------------
@@ -336,15 +264,11 @@
     if (muestras.length < 2) return { ok: false, motivo: "geometría demasiado corta" };
 
     await obtener(muestras.map(m => [m[0], m[1]]), null, ZOOM_PERFIL);
-    let usoRespaldo = false;
-    const crudas = muestras.map(m => {
-      const k = clave(m[0], m[1]), v = cache.get(kz(ZOOM_PERFIL, k));
-      if (v !== undefined) return v;
-      const o = cache.get(kom(k));
-      if (o !== undefined) usoRespaldo = true;
-      return o;
-    });
-    if (!crudas.some(Number.isFinite)) throw new Error("No se pudo obtener la elevación de esta bajada");
+    const crudas = muestras.map(m => cache.get(kz(ZOOM_PERFIL, clave(m[0], m[1]))));
+    // Sin cobertura del IGN (fuera de España) o cobertura parcial (bajada que cruza la frontera): un perfil con huecos
+    // grandes sería inventado (se rellenaría en plano), así que la bajada se retira.
+    const conDato = crudas.filter(Number.isFinite).length;
+    if (conDato < crudas.length * 0.9) return { ok: false, motivo: "sin datos de elevación completos (fuera de la cobertura del IGN, solo España)" };
     const sm = suavizar(rellenarHuecos(crudas), VENTANA_SUAVIZADO);
 
     const total = muestras[muestras.length - 1][2];
@@ -373,7 +297,7 @@
       pendiente_max_100m_pct: Math.round(maxPend * 10) / 10,
       elev_inicio_m: Math.round(sm[0]),
       elev_final_m: Math.round(sm[sm.length - 1]),
-      fuente_elev: usoRespaldo ? "openmeteo" : FUENTE,
+      fuente_elev: FUENTE,
       perfil_cargado: true
     });
     return { ok: true };
