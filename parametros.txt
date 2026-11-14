@@ -1,0 +1,14 @@
+bajadas descartadas por dudoso sentido
+osm.js
+const MIN_CAIDA_M = 8;
+const MIN_PEND_PCT = 2;
+
+Longitud	Exige el 2 %	Exige el 8 m	Caída necesaria
+150 m	3 m	8 m	8 m (manda MIN_CAIDA)
+400 m	8 m	8 m	8 m (empatan)
+1 km	20 m	8 m	20 m (manda la pendiente)
+3 km	60 m	8 m	60 m (manda la pendiente)
+
+mi ubicacion 
+para que no se quede siempre activado 
+trackUserLocation: true o false

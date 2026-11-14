@@ -178,17 +178,6 @@
     #busquedaResultados { max-height: 150px; }
   }
 
-  /* ===== Cargar zona ===== */
-  #btnZona {
-    position: absolute; top: 12px; left: 66px; z-index: 9; height: 46px; padding: 0 16px;
-    border: 0; border-radius: 14px; background: #2c3e50; color: #fff; font-size: 14px; font-weight: 650;
-    box-shadow: 0 2px 12px rgba(0,0,0,.28); cursor: pointer; touch-action: manipulation;
-  }
-  #btnZona:hover { background: #1a252f; }
-  #btnZona:disabled { background: #7d8a96; cursor: progress; }
-  @media (max-width: 720px) {
-    #btnZona { top: 10px; left: 62px; height: 44px; padding: 0 14px; }
-  }
 
   /* ===== Búsqueda mixta, selector de mapa, salto en ruta ===== */
   .res-grupo { font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:#6b7280; padding:8px 9px 2px; }
@@ -213,14 +202,14 @@
 
   /* ===== Rediseño: pasos, botones verdes, asas visibles ===== */
   button, input, select { font-family: inherit; }
-  #btnGenerar, #btnZona, .popup-add, #toast .t { background: var(--brand); color: #fff; }
-  #btnGenerar:hover, #btnZona:hover, .popup-add:hover { background: var(--brand-dark); color: #fff; }
+  #btnGenerar, .popup-add, #toast .t { background: var(--brand); color: #fff; }
+  #btnGenerar:hover, .popup-add:hover { background: var(--brand-dark); color: #fff; }
   #btnGenerar:disabled { background: #b7c4bc; color: #fff; }
   .popup-add { border: 0; min-height: 44px; border-radius: 12px; font-weight: 650; font-size: 14px; }
   .popup-add.in { background: #fff; color: var(--ink); border: 1px solid #c9d1cc; }
   .popup-add.in:hover { background: #f3f5f4; color: var(--ink); }
   #btnBuscarToggle { color: var(--brand); display: flex; align-items: center; justify-content: center; padding: 0; }
-  /* El contenedor de la búsqueda es ancho y transparente: no debe tapar el botón «Descargar bajadas» */
+  /* El contenedor de la búsqueda es ancho y transparente: no debe tapar la casilla de senderos sin etiqueta */
   #busquedaWrap { z-index: 10; pointer-events: none; }
   #btnBuscarToggle, #busquedaPanel { pointer-events: auto; }
   #busquedaInput:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(42,107,74,.15); }
@@ -233,7 +222,6 @@
 
   /* Tarjeta de pasos */
   #pasos { position: absolute; top: 12px; left: 66px; z-index: 9; width: min(380px, calc(100% - 78px)); background: #fff; border-radius: 16px; padding: 10px 12px 12px; box-shadow: 0 2px 14px rgba(0,0,0,.24); }
-  #btnZona { position: static; width: 100%; height: 46px; padding: 0 16px; border-radius: 12px; box-shadow: none; font-size: 15px; }
   .stepper { list-style: none; margin: 0; padding: 0; display: flex; }
   .stepper li { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; position: relative; text-align: center; font-size: 11px; line-height: 1.15; color: #7a8780; cursor: pointer; padding-bottom: 2px; }
   .stepper li::before { content: ""; position: absolute; top: 11px; right: 50%; width: 100%; height: 2px; background: #dbe3de; z-index: 0; }
@@ -289,9 +277,8 @@
   #mapwrap.conPerfil { --base: 150px; }
   #mapwrap.pasosOff, #mapwrap.conFicha { --pasosH: 0px; }
   #mapwrap .maplibregl-ctrl-bottom-left, #mapwrap .maplibregl-ctrl-bottom-right { bottom: calc(var(--base) + var(--pasosH)) !important; }
-  #zonaBox { position: absolute; top: 12px; left: 66px; z-index: 9; width: min(272px, calc(100% - 130px)); display: flex; flex-direction: column; gap: 0; background: #fff; border-radius: 14px; padding: 6px; box-shadow: 0 2px 12px rgba(0,0,0,.24); }
-  #zonaBox #btnZona { box-shadow: none; height: 36px; padding: 0 12px; font-size: 14px; border-radius: 10px; }
-  .zona-opcion { display: flex; align-items: center; gap: 8px; margin-top: 5px; padding: 5px 8px; border-radius: 9px; background: var(--brand-soft); cursor: pointer; touch-action: manipulation; font-size: 12.5px; line-height: 1.2; color: var(--ink); white-space: nowrap; }
+  #zonaBox { position: absolute; top: 12px; left: 66px; z-index: 9; width: min(272px, calc(100% - 130px)); display: flex; flex-direction: column; gap: 0; background: #fff; border-radius: 14px; padding: 4px; box-shadow: 0 2px 12px rgba(0,0,0,.24); }
+  .zona-opcion { display: flex; align-items: center; gap: 8px; margin-top: 0; padding: 5px 8px; border-radius: 9px; background: var(--brand-soft); cursor: pointer; touch-action: manipulation; font-size: 12.5px; line-height: 1.2; color: var(--ink); white-space: nowrap; }
   .zona-opcion input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--brand); cursor: pointer; }
   .zona-opcion span { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
   .zona-opcion:has(input:checked) { background: #d4ead9; box-shadow: inset 0 0 0 1.5px var(--brand); }
@@ -413,15 +400,14 @@
       </div>
     </div>
     <div id="zonaBox">
-      <button id="btnZona" type="button">Descargar bajadas</button>
-      <label class="zona-opcion" for="modoAmplio" title="Añade más senderos abiertos a la bici que no llevan etiqueta MTB. Pueden no ser de bajada. Zona máx. 120 km²">
+      <label class="zona-opcion" for="modoAmplio" title="Muestra también senderos abiertos a la bici que no llevan etiqueta MTB (origen «inferida»). Pueden no ser de bajada. Solo aparecen si se generaron los datos con --sin-etiqueta">
         <input type="checkbox" id="modoAmplio" /><span>Incluir senderos sin etiqueta MTB</span>
       </label>
     </div>
     <div id="pasos">
       <button id="pasosCerrar" type="button" aria-label="Ocultar pasos" title="Ocultar">×</button>
       <ol class="stepper">
-        <li data-p="1"><b>1</b><span>Descargar bajadas</span></li>
+        <li data-p="1"><b>1</b><span>Ver bajadas de la zona</span></li>
         <li data-p="2"><b>2</b><span>Elegir bajadas y puntos</span></li>
         <li data-p="3"><b>3</b><span>Generar ruta</span></li>
       </ol>
@@ -479,7 +465,7 @@
             <summary>⚙ Configuración</summary>
             <div class="cfg-fila">
               <div class="txt">Caché de bajadas<small id="cfgInfo">…</small></div>
-              <button id="cfgLimpiar" type="button" title="Borra la caché de bajadas (se conservan las de tu ruta). Podrás volver a descargarlas con «Descargar bajadas»">Vaciar caché</button>
+              <button id="cfgLimpiar" type="button" title="Borra la caché de bajadas (se conservan las de tu ruta). Se volverán a cargar solas al mover el mapa">Vaciar caché</button>
             </div>
             <div class="cfg-fila">
               <div class="txt">Orientación del mapa<small>Al seguir la ruta: norte siempre arriba, o el mapa gira hacia donde avanzas</small></div>
@@ -515,7 +501,7 @@
 
 <script>
 // Versión de este index.html: aparece en la consola y en el título de la pestaña
-window.APP_VERSION = "zona-v6";
+window.APP_VERSION = "datos-v2-cataluna";
 console.log("[app] index.html versión", window.APP_VERSION);
 document.title = document.title + " · " + window.APP_VERSION;
 // Quita service workers y cachés de versiones anteriores (si los hubiera) para ver siempre esta versión
@@ -523,8 +509,6 @@ if (navigator.serviceWorker) navigator.serviceWorker.getRegistrations().then(rs 
 if (window.caches) caches.keys().then(ks => ks.forEach(k => { console.log("[app] caché eliminada", k); caches.delete(k); })).catch(() => {});
 </script>
 <script src="./lib/maplibre-gl.js"></script>
-<script src="osm.js"></script>
-<script src="elevacion.js"></script>
 <script src="ruta.js"></script>
 <script>
 const COLORES = { verde: "#2e9e4f", azul: "#1f6fd1", rojo: "#d62f2f", negro: "#1a1a1a", sin: "#9e9e9e" };
@@ -585,10 +569,11 @@ function rumboEntre(lat1, lon1, lat2, lon2) {   // rumbo en grados (0 = norte, 9
 }
 const ubic = {
   rumbo: null, rumboRuta: null,
-  pos: null, watchId: null, camSigue: false, zoomPend: 0, unaVez: 0, marker: null, btn: null, pausaT: null,
+  pos: null, watchId: null, afinarId: null, afinarT: null, camSigue: false, zoomPend: 0, unaVez: 0, marker: null, btn: null, pausaT: null,
   iniciar() {
     if (this.watchId !== null) return;
     if (!navigator.geolocation) { setEstado("Tu navegador no permite acceder a la ubicación."); return; }
+    this.pararAfinado();
     this.watchId = navigator.geolocation.watchPosition(
       (p) => this.alActualizar(p), (e) => this.alError(e),
       { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 });
@@ -662,9 +647,28 @@ const ubic = {
     }
     if (!navigator.geolocation) { setEstado("Tu navegador no permite acceder a la ubicación."); return; }
     this.unaVez = zoom || 15;
-    navigator.geolocation.getCurrentPosition(
-      (p) => this.alActualizar(p), (e) => { this.unaVez = 0; this.alError(e); },
+    // La primera lectura del móvil suele ser aproximada (antenas/WiFi, 20-50 m de error).
+    // Se escucha el GPS unos segundos y se queda con la lectura más precisa.
+    this.pararAfinado();
+    const zm = zoom || 15, MAX_ACC = 10, MAX_MS = 15000;
+    let mejor = Infinity;
+    this.afinarT = setTimeout(() => this.pararAfinado(), MAX_MS);
+    this.afinarId = navigator.geolocation.watchPosition(
+      (p) => {
+        const acc = p.coords.accuracy;
+        if (acc > mejor) return;                       // ignora lecturas peores que la mejor ya vista
+        const primera = mejor === Infinity;
+        mejor = acc;
+        if (!primera && this.afinarId !== null) this.unaVez = zm;   // recentra con la lectura mejorada (si no has movido el mapa)
+        this.alActualizar(p);
+        if (acc <= MAX_ACC) this.pararAfinado();       // ya es suficientemente precisa
+      },
+      (e) => { this.unaVez = 0; this.pararAfinado(); this.alError(e); },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+  },
+  pararAfinado() {
+    if (this.afinarId !== null && this.afinarId !== undefined) { navigator.geolocation.clearWatch(this.afinarId); }
+    this.afinarId = null; clearTimeout(this.afinarT);
   },
   detener() {          // apaga el seguimiento continuo del GPS (el punto azul se queda donde estaba)
     if (this.watchId !== null) { navigator.geolocation.clearWatch(this.watchId); this.watchId = null; }
@@ -696,7 +700,7 @@ class UbicacionControl {
   onRemove() { this._c.remove(); }
 }
 map.addControl(new UbicacionControl(), "top-right");
-map.on("dragstart", (e) => { if (!e.originalEvent) return; ubic.unaVez = 0; if (ubic.camSigue) ubic.pausarCam(); });
+map.on("dragstart", (e) => { if (!e.originalEvent) return; ubic.unaVez = 0; ubic.pararAfinado(); if (ubic.camSigue) ubic.pausarCam(); });
 
 // Botón para alternar entre el mapa normal y la vista satélite
 class BaseMapaControl {
@@ -1100,7 +1104,7 @@ function toast(msg, ms = 2200) {
   clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("on"), ms);
 }
 const PASOS_INFO = {
-  1: "<b>Descargar bajadas:</b> acerca el mapa a la zona donde vas a rodar y pulsa «Descargar bajadas» (botón de arriba). Si quieres incluir senderos sin etiqueta MTB, marca la casilla antes de pulsar.",
+  1: "<b>Ver bajadas:</b> las bajadas de la zona que muestra el mapa se cargan solas. Si no aparecen, acerca el mapa a donde vas a rodar.",
   2: "<b>Elegir bajadas y puntos:</b> toca una bajada en el mapa y pulsa «Añadir a mi ruta». Para marcar un punto de inicio o intermedio, toca un hueco del mapa y pulsa «Añadir punto». El orden de la lista es el orden de la ruta; puedes reordenarla en el panel de abajo.",
   3: "<b>Generar ruta:</b> elige ruta circular y el modo de enrutamiento, y pulsa «Generar ruta» en el panel de abajo."
 };
@@ -1210,7 +1214,7 @@ try { if (navigator.storage && navigator.storage.persist) navigator.storage.pers
 // de Open-Meteo se recalculan al abrir la bajada.
 function marcarPerfilObsoleto(f) {
   const p = f && f.properties;
-  if (p && p.perfil_cargado && (!p.fuente_elev || p.fuente_elev === "openmeteo")) p.perfil_cargado = false;
+  if (p && !p._precalc && p.perfil_cargado && (!p.fuente_elev || p.fuente_elev === "openmeteo")) p.perfil_cargado = false;
 }
 async function cargarBajadasLocales() {
   try {
@@ -1225,7 +1229,7 @@ async function cargarBajadasLocales() {
     const ahora = Date.now();
     let n = 0;
     for (const [id, b] of Object.entries(o)) {
-      if (!b || !b.f || descartadas.has(id) || ahora - b.t > IDB_TTL_MS) continue;
+      if (!b || !b.f || ahora - b.t > IDB_TTL_MS) continue;
       marcarPerfilObsoleto(b.f);
       porId.set(id, b.f); tramosPorId.set(id, b.tramos || []); tiempoCarga.set(id, b.t); n++;
     }
@@ -1247,8 +1251,10 @@ async function iniciarApp() {
     actualizarMapa(); actualizarContornoRuta();
     if (features.length) {
       ajustarVista();
-      if (nLocal) setEstado(`${nLocal} bajada${nLocal === 1 ? "" : "s"} recuperada${nLocal === 1 ? "" : "s"} de la caché. Pulsa «Descargar bajadas» para añadir más.`);
-    } else setEstado("Acerca el mapa a tu zona y pulsa «Descargar bajadas».");
+      if (nLocal) setEstado(`${nLocal} bajada${nLocal === 1 ? "" : "s"} recuperada${nLocal === 1 ? "" : "s"} de la caché. Mueve el mapa para ver más zonas.`);
+    } else setEstado("Cargando las bajadas de tu zona…");
+    map.on("moveend", programarCargaZona);
+    cargarZona(false);
     try { ubic.centrarUnaVez(15); } catch (e) {}   // al abrir, centra el mapa en tu posición (si das permiso)
   } catch (e) {
     cargaLocalTerminada = true;
@@ -1264,7 +1270,9 @@ map.once("style.load", () => setTimeout(() => {
 
 // Vuelca las bajadas cargadas (y sus trozos de color y extremos) a las capas del mapa
 function actualizarMapa() {
-  features = [...porId.values()];
+  // Las «inferidas» (sin etiqueta MTB) solo se muestran si la casilla está marcada; las de tu ruta siempre
+  const incluirInferidas = !!(document.getElementById("modoAmplio") || {}).checked;
+  features = [...porId.values()].filter(f => incluirInferidas || f.properties.origen !== "inferida" || miRuta.includes(idDe(f)));
   const tr = { type: "FeatureCollection", features: [] };
   const pt = { type: "FeatureCollection", features: [] };
   for (const f of features) {
@@ -1281,131 +1289,176 @@ function actualizarMapa() {
 }
 
 // Barra de progreso + tiempo transcurrido mientras se carga la zona (frac = null => barra indeterminada)
-function iniciarProgreso(btn) {
+function iniciarProgreso() {
   const barra = document.getElementById("progresoZona"), relleno = barra.firstElementChild;
-  const t0 = Date.now(), textoBtn = btn.textContent;
+  const t0 = Date.now();
   let msg = "", frac = null;
   barra.classList.add("on");
   function pinta() {
     const seg = Math.round((Date.now() - t0) / 1000);
     setEstado(`${msg} · ${seg} s`);
-    btn.textContent = frac === null ? `Cargando… ${seg} s` : `Cargando… ${Math.round(frac * 100)} %`;
     barra.classList.toggle("indet", frac === null);
     relleno.style.width = frac === null ? "" : (frac * 100).toFixed(0) + "%";
   }
   const iv = setInterval(pinta, 500);
   return {
     set(m, f) { msg = m; frac = (typeof f === "number" && isFinite(f)) ? Math.max(0, Math.min(1, f)) : null; pinta(); },
-    fin() { clearInterval(iv); barra.classList.remove("on", "indet"); relleno.style.width = "0"; btn.textContent = textoBtn; }
+    fin() { clearInterval(iv); barra.classList.remove("on", "indet"); relleno.style.width = "0"; }
   };
 }
 
-// ---- Cargar la zona visible: senderos MTB de OSM + sentido por la elevación de los extremos ----
-// Captura en document: el botón responde aunque otro elemento o script frene el evento.
-// Siempre descarga la zona de nuevo desde el origen (OpenStreetMap), sin usar la caché.
-document.addEventListener("click", (e) => {
-  const b = e.target && e.target.closest ? e.target.closest("#btnZona") : null;
-  if (!b) return;
-  console.log("[zona] click en «Descargar bajadas»");
-  cargarZona();
-}, true);
+// ---- Datos precalculados: los genera generar.py (salida/<zona>/indice.json + celdas/<fila>_<col>.json) ----
+// La app solo descarga las celdas (~11 km) que cubre el mapa visible; cada celda ya trae sentido, perfil y dificultad.
+const DATOS_BASE = "generador/salida";   // carpeta con los datos, relativa a index.html (en producción: "salida")
+const DATOS_ZONAS = ["cataluna"];        // zonas disponibles (una carpeta por zona dentro de DATOS_BASE)
+const MAX_CELDAS_VISTA = 60;            // con el mapa muy alejado no se cargan celdas
+const zonasDatos = new Map();           // zona -> indice.json
+const celdasCargadas = new Set();       // "zona/fila_col"
+const diagCeldas = new Map();           // diagnóstico: de dónde vino cada celda y cuántas bajadas / sin etiqueta traía
+let indicesPromesa = null;
 
-// Opción de descarga: al cambiarla se avisa de que hay que volver a descargar para aplicarla
-(function () {
-  const chk = document.getElementById("modoAmplio");
-  if (!chk) return;
-  chk.addEventListener("change", () => {
-    toast(chk.checked ? "Opción activada: pulsa «Descargar bajadas» para aplicarla" : "Opción desactivada: pulsa «Descargar bajadas» para aplicarla");
-  });
-})();
+function cargarIndices() {
+  if (indicesPromesa) return indicesPromesa;
+  indicesPromesa = Promise.all(DATOS_ZONAS.map(async (z) => {
+    try {
+      const r = await fetch(`${DATOS_BASE}/${z}/indice.json`, { cache: "no-cache" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      zonasDatos.set(z, await r.json());
+    } catch (e) { console.error("[datos] no se pudo leer el índice de", z, e); }
+  })).then(() => { if (!zonasDatos.size) indicesPromesa = null; });   // si todo falló, se reintentará
+  return indicesPromesa;
+}
 
-let cargandoDesde = 0;
-async function cargarZona() {
-  // Si una carga anterior se quedó colgada (>60 s), el botón vuelve a funcionar
-  if (cargandoZona && Date.now() - cargandoDesde < 60000) { toast("Ya se está cargando la zona…"); return; }
-  const btn = document.getElementById("btnZona");
+function incorporarBajada(b, enRuta) {
+  const f = b && b.f;
+  if (!f || !f.properties || !f.geometry) return false;
+  const p = f.properties, id = p.id;
+  // Los datos precalculados son la fuente de verdad: una «descartada» guardada por una versión antigua
+  // (cuando el perfil se calculaba en el móvil) ya no debe ocultar la bajada.
+  if (!id || enRuta.has(id)) return false;   // las de tu ruta se conservan tal cual
+  descartadas.delete(id);
+  const c = f.geometry.coordinates;
+  // Por si generar.py no escribe alguno de estos campos que usa el mapa
+  if (!p._cat) p._cat = catDe(p);
+  if (!p.inicio && c.length) p.inicio = [c[0][0], c[0][1]];
+  if (!p.fin && c.length) p.fin = [c[c.length - 1][0], c[c.length - 1][1]];
+  p._precalc = true;   // perfil ya calculado en generar.py: no se pide nada al IGN
+  if (!p.perfil_cargado) console.warn("[datos] bajada sin perfil_cargado:", id);
+  porId.set(id, f); tramosPorId.set(id, b.tramos || []); tiempoCarga.set(id, Date.now());
+  return true;
+}
+
+// manual = true cuando se pulsa el botón (avisa si no hay datos); si no, se llama sola al mover el mapa
+async function cargarZona(manual) {
+  if (cargandoZona) { if (manual) toast("Ya se está cargando la zona…"); return; }
+  cargandoZona = true;
   let prog = null;
-  cargandoZona = true; cargandoDesde = Date.now();
   try {
-    if (typeof OSM === "undefined" || typeof Elev === "undefined") throw new Error("no se han cargado osm.js / elevacion.js (recarga la página)");
-    if (typeof OSM.setModoAmplio === "function") OSM.setModoAmplio(document.getElementById("modoAmplio").checked);
+    await cargarIndices();
+    if (!zonasDatos.size) {
+      if (manual) { const m = "No se han podido leer los datos de bajadas. Comprueba la conexión."; setEstado(m); toast(m); }
+      return;
+    }
     const b = map.getBounds();
-    const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()];
-    const area = OSM.areaKm2(bbox);
-    if (area > OSM.MAX_AREA_KM2) {
-      const m = `La zona visible es muy grande (${Math.round(area)} km²). Acerca el mapa (máximo ${OSM.MAX_AREA_KM2} km²).`;
-      setEstado(m); toast(m);
+    const S = b.getSouth(), W = b.getWest(), N = b.getNorth(), E = b.getEast();
+    const pend = [];
+    let cubierta = false, demasiado = false;
+    for (const [z, idx] of zonasDatos) {
+      const [s, w, n, e] = idx.bbox, G = idx.celda_grados || 0.1;
+      if (N < s || S > n || E < w || W > e) continue;
+      cubierta = true;
+      const f0 = Math.floor(Math.max(S, s) / G + 1e-9), f1 = Math.floor(Math.min(N, n) / G + 1e-9);
+      const c0 = Math.floor(Math.max(W, w) / G + 1e-9), c1 = Math.floor(Math.min(E, e) / G + 1e-9);
+      if ((f1 - f0 + 1) * (c1 - c0 + 1) > MAX_CELDAS_VISTA) { demasiado = true; continue; }
+      for (let f = f0; f <= f1; f++) for (let c = c0; c <= c1; c++) {
+        const nom = f + "_" + c, clave = z + "/" + nom;
+        if (idx.celdas && nom in idx.celdas && !celdasCargadas.has(clave)) pend.push({ z, nom, clave });
+      }
+    }
+    if (!pend.length) {
+      if (manual) {
+        const m = demasiado ? "Acerca el mapa para cargar las bajadas."
+          : cubierta ? "Las bajadas de esta zona ya están cargadas." : "Todavía no hay bajadas disponibles en esta zona.";
+        setEstado(m); toast(m);
+      }
       return;
     }
-    btn.disabled = true;
-    toast("Descargando la zona…");
-    prog = iniciarProgreso(btn);
-    prog.set("Buscando bajadas en la zona…");
-    // Siempre se descarga de nuevo desde el origen: se vacía la caché de zonas de osm.js
-    const t0 = performance.now();
-    try { if (typeof OSM.cacheLimpiar === "function") await OSM.cacheLimpiar(); } catch (e) { console.warn("[zona] no se pudo vaciar la caché de OSM", e); }
-    // osm.js informa del servidor al que se conecta: se oculta y se muestra un texto sobre las bajadas
-    const sinServidor = (m) => /overpass|servidor|mirror|https?:|\.(de|fr|ru|ch|org|com|net)\b|conect|reintent/i.test(String(m || "")) ? "Buscando bajadas en la zona…" : m;
-    const cand = await OSM.descargarZona(bbox, (m, f) => prog.set(sinServidor(m), f));
-    const t1 = performance.now();
-    console.log("[zona] candidatas:", cand.length, "· descarga+agrupado", Math.round(t1 - t0), "ms");
-    if (!cand.length) {
-      const m = "No hay senderos con etiquetas MTB en esta zona.";
-      setEstado(m); toast(m);
-      return;
-    }
-    // Las bajadas de tu ruta se conservan tal cual; el resto se vuelve a evaluar (la elevación ya está en caché, es rápido).
-    // Las «descartadas» (el perfil completo demostró que no bajan) no se vuelven a mostrar.
+    prog = iniciarProgreso();
+    prog.set("Cargando bajadas de la zona…", 0);
     const enRuta = new Set(miRuta.filter(id => !esPunto(id)));
-    const nuevos = cand.filter(c => !enRuta.has(c.id) && !descartadas.has(c.id));
-    if (!nuevos.length) {
-      const m = "Zona descargada: todas las bajadas ya están en tu ruta.";
-      setEstado(m); toast(m);
-      return;
-    }
-    prog.set(`${nuevos.length} bajada${nuevos.length === 1 ? "" : "s"} encontrada${nuevos.length === 1 ? "" : "s"} · comprobando el sentido…`);
-    const extremos = [];
-    for (const c of nuevos) extremos.push(c.pts[0], c.pts[c.pts.length - 1]);
-    await Elev.obtener(extremos, (hecho, total) => {
-      const fr = total ? hecho / total : null;
-      prog.set(`${nuevos.length} bajadas encontradas · comprobando sentido: ${fr === null ? 0 : Math.min(nuevos.length, Math.round(fr * nuevos.length))}/${nuevos.length}`, fr);
-    });
-    let validas = 0, dudosas = 0, sinCota = 0;
-    for (const c of nuevos) {
-      const ini = c.pts[0], fin = c.pts[c.pts.length - 1];
-      const e0 = Elev.ele(ini[0], ini[1]), e1 = Elev.ele(fin[0], fin[1]);
-      const hayCota = Number.isFinite(e0) && Number.isFinite(e1);
-      const r = hayCota ? OSM.evaluar(c, e0, e1) : null;   // sin cota del IGN (fuera de España): no se puede comprobar el sentido
-      if (!r) { if (hayCota) dudosas++; else sinCota++; porId.delete(c.id); tramosPorId.delete(c.id); tiempoCarga.delete(c.id); continue; }   // ante la duda, no se muestra
-      porId.set(c.id, r.feature); tramosPorId.set(c.id, r.tramos); tiempoCarga.set(c.id, Date.now()); validas++;
-    }
-    console.log("[zona] elevación+evaluación", Math.round(performance.now() - t1), "ms");
+    let hechas = 0, nuevas = 0, fallos = 0;
+    await Promise.all(pend.map(async ({ z, nom, clave }) => {
+      try {
+        const r = await fetch(`${DATOS_BASE}/${z}/celdas/${nom}.json`, { cache: "no-cache" });   // revalida siempre: así llegan los datos regenerados
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const datos = await r.json();
+        let inf = 0;
+        for (const bj of datos.bajadas || []) {
+          if (bj && bj.f && bj.f.properties && bj.f.properties.origen === "inferida") inf++;
+          if (incorporarBajada(bj, enRuta)) nuevas++;
+        }
+        diagCeldas.set(clave, { url: r.url, total: (datos.bajadas || []).length, inferidas: inf });
+        celdasCargadas.add(clave);
+      } catch (e) { fallos++; console.error("[datos] celda", clave, e); }
+      prog.set("Cargando bajadas de la zona…", ++hechas / pend.length);
+    }));
     actualizarMapa();
     guardarBajadasLocal();
-    const aviso = sinCota ? ` · ${sinCota} sin datos de elevación (la app solo cubre España)` : "";
-    const msg = validas
-      ? `${validas} bajada${validas === 1 ? "" : "s"} cargada${validas === 1 ? "" : "s"} · ${dudosas} descartada${dudosas === 1 ? "" : "s"} por sentido dudoso${aviso}`
-      : (sinCota && !dudosas
-          ? "Esta zona queda fuera de la cobertura de elevación (la app solo cubre España)."
-          : `No hay bajadas con sentido fiable (${dudosas} descartada${dudosas === 1 ? "" : "s"} por sentido dudoso${aviso}).`);
+    const msg = fallos
+      ? `No se han podido cargar ${fallos} trozo${fallos === 1 ? "" : "s"} del mapa. Vuelve a intentarlo.`
+      : `${features.length.toLocaleString("es-ES")} bajadas disponibles en la zona.`;
     setEstado(msg);
-    toast(validas ? `✓ ${validas} bajada${validas === 1 ? "" : "s"} cargada${validas === 1 ? "" : "s"}` : "No hay bajadas con sentido fiable");
+    if (manual || fallos) toast(fallos ? "Error al cargar parte de la zona" : `✓ ${msg}`);
   } catch (e) {
     console.error("[zona] error", e);
     setEstado("Error: " + (e && e.message ? e.message : e));
-    toast("Error al descargar la zona");
+    if (manual) toast("Error al cargar la zona");
   } finally {
     if (prog) prog.fin();
     cargandoZona = false;
-    btn.disabled = false;
   }
+}
+(function () {
+  const chk = document.getElementById("modoAmplio");
+  if (!chk) return;
+  try { chk.checked = localStorage.getItem("incluirInferidas_v1") === "1"; } catch (e) {}
+  chk.addEventListener("change", () => {
+    try { localStorage.setItem("incluirInferidas_v1", chk.checked ? "1" : "0"); } catch (e) {}
+    if (!chk.checked && seleccionada) {
+      const f = porId.get(seleccionada);
+      if (f && f.properties.origen === "inferida" && !miRuta.includes(seleccionada)) deseleccionar();
+    }
+    actualizarMapa();
+    if (chk.checked) cargarZona(false);   // por si faltan celdas de la vista actual
+    const n = [...porId.values()].filter(f => f.properties.origen === "inferida").length;
+    if (chk.checked && !n) {
+      // Sin ninguno: se explica qué se ha descargado para localizar el problema
+      const celdas = [...diagCeldas.entries()];
+      const totalDesc = celdas.reduce((a, [, d]) => a + d.total, 0);
+      const ej = celdas.length ? celdas[0][1].url : `${DATOS_BASE}/…`;
+      const m = celdas.length
+        ? `No hay senderos sin etiqueta: se descargaron ${celdas.length} celda${celdas.length === 1 ? "" : "s"} con ${totalDesc} bajadas y ninguna es «inferida». Ejemplo de celda leída: ${ej}`
+        : `No hay senderos sin etiqueta: en esta sesión no se ha descargado ninguna celda (mueve o acerca el mapa a una zona con datos). Ruta de datos: ${DATOS_BASE}/`;
+      console.warn("[datos]", m, Object.fromEntries(diagCeldas));
+      setEstado(m); toast("No hay senderos sin etiqueta en los datos descargados", 4000);
+    } else
+    toast(chk.checked ? `Mostrando también ${n} sendero${n === 1 ? "" : "s"} sin etiqueta MTB`
+                      : "Solo bajadas con etiqueta MTB");
+  });
+})();
+// Carga automática al mover el mapa (con pausa, para no lanzar una carga por cada gesto)
+let zonaTimer = null;
+function programarCargaZona() {
+  clearTimeout(zonaTimer);
+  zonaTimer = setTimeout(() => { if (cargaLocalTerminada) cargarZona(false); }, 500);
 }
 
 // ---- Perfil completo de una bajada (se pide al abrirla o al añadirla a la ruta) ----
 function asegurarPerfil(id) {
   const f = porId.get(id);
   if (!f) return Promise.resolve(false);
-  if (f.properties.perfil_cargado) return Promise.resolve(true);
+  if (f.properties.perfil_cargado || f.properties._precalc) return Promise.resolve(true);
+  if (typeof Elev === "undefined") { descartarBajada(id, "sin perfil de elevación"); return Promise.resolve(false); }
   if (perfilesEnCurso.has(id)) return perfilesEnCurso.get(id);
   const prom = (async () => {
     try {
@@ -2447,7 +2500,7 @@ function iniciarSeguir() {
   seguirPts = construirSeguirPts(rutaGenerada.segmentos);
   if (seguirPts.length < 2) return;
   siguiendo = true; seguirUlt = null; textoSeguir = "";
-  document.body.classList.add("modo-seguir");   // oculta «Descargar bajadas» y los pasos, y estrecha la barra del panel
+  document.body.classList.add("modo-seguir");   // oculta la casilla de zona y los pasos, y estrecha la barra del panel
   btnSeguir.classList.add("activo"); btnSeguir.textContent = "■ Parar";
   document.getElementById("mapwrap").classList.add("conPerfil");   // por si habías cerrado el perfil
   dibujarPerfil();
@@ -2517,7 +2570,7 @@ cfgEl.addEventListener("toggle", () => { if (cfgEl.open) actualizarConfig(); });
 document.getElementById("cfgLimpiar").addEventListener("click", async () => {
   if (cargandoZona) { setEstado("Espera a que termine la carga de la zona para limpiar."); return; }
   const enRuta = new Set(miRuta.filter(id => !esPunto(id)));
-  if (!confirm("¿Vaciar la caché de bajadas?" + (enRuta.size ? ` Se conservan las ${enRuta.size} de tu ruta.` : "") + " Podrás volver a descargarlas con «Descargar bajadas».")) return;
+  if (!confirm("¿Vaciar la caché de bajadas?" + (enRuta.size ? ` Se conservan las ${enRuta.size} de tu ruta.` : "") + " Se volverán a cargar solas al mover el mapa.")) return;
   let n = 0;
   for (const id of [...porId.keys()]) {
     if (enRuta.has(id)) continue;
@@ -2528,8 +2581,8 @@ document.getElementById("cfgLimpiar").addEventListener("click", async () => {
   if (seleccionada && !enRuta.has(seleccionada)) deseleccionar();
   actualizarMapa();
   await volcarBajadasLocal();
-  await OSM.cacheLimpiar();
-  setEstado(`${n} bajada${n === 1 ? "" : "s"} borrada${n === 1 ? "" : "s"} de la caché. Acerca el mapa y pulsa «Descargar bajadas» para volver a descargar.`);
+  celdasCargadas.clear();
+  setEstado(`${n} bajada${n === 1 ? "" : "s"} borrada${n === 1 ? "" : "s"} de la caché. Mueve el mapa para volver a cargarlas.`);
   actualizarConfig();
 });
 </script>
