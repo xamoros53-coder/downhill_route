@@ -2750,7 +2750,12 @@ async function importarGPX(file) {
     kept = kept.filter(k => porId.has(idDe(k.f)));
 
     // 3) la lista «Tus bajadas» (guardarMiRuta borra cualquier ruta anterior, por eso va antes de fijar la nueva)
-    miRuta.length = 0;
+    // el punto de salida del GPX va el primero de la lista, como un punto de la ruta (📍)
+    let lugarSalida = null;
+    try { lugarSalida = await nombreDeLugar(pts[0][0], pts[0][1]); } catch (e) {}
+    const idSalida = "wp:" + Date.now();
+    puntosInter.set(idSalida, lugarSalida ? [pts[0][0], pts[0][1], lugarSalida] : [pts[0][0], pts[0][1]]);
+    miRuta.length = 0; miRuta.push(idSalida);
     kept.forEach(k => { const id = idDe(k.f); if (!miRuta.includes(id)) miRuta.push(id); });
     puntoInicio = null; puntoFin = null;
     guardarMiRuta(); guardarPuntos();
@@ -2772,7 +2777,7 @@ async function importarGPX(file) {
     rutaGenerada = { gpx: texto, segmentos: segs, stats: gpxStats(pts), importada: true };
     actualizarBotonGenerar();
     dibujarRuta(segs);
-    mostrarPerfil(segs, rutaGenerada.stats, []);
+    mostrarPerfil(segs, rutaGenerada.stats, [{ punto: true, lat: pts[0][0], lon: pts[0][1], nombre: lugarSalida ? `Punto 1 · ${lugarSalida}` : "Punto 1" }]);
     document.getElementById("btnGenerar").textContent = "Descargar GPX";
     mostrarBotonSeguir(true);
     gpxResumen(segs);
