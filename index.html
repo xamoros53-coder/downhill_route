@@ -380,6 +380,13 @@
 
   /* ===== Configuración: selector de orientación ===== */
   .cfg-fila select { flex: none; max-width: 150px; min-height: 36px; padding: 0 8px; border: 1.5px solid var(--brand); border-radius: 8px; background: var(--brand-soft); color: var(--ink); font-size: 13px; font-weight: 600; cursor: pointer; }
+  .imp-tit { font-weight: 650; margin-bottom: 4px; }
+  .imp-fila { display: flex; align-items: center; gap: 6px; padding: 4px 0; cursor: pointer; border-top: 1px solid #e6e9ed; }
+  .imp-fila:first-of-type { border-top: 0; }
+  .imp-fila i { flex: none; width: 10px; height: 10px; border-radius: 50%; }
+  .imp-fila .nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .imp-fila small { flex: none; color: #667; }
+  body.importando #btnImportarGPX { opacity: .5; pointer-events: none; }
 </style>
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="64x64" href="./icons/favicon-64.png">
@@ -459,6 +466,8 @@
           <div id="miRutaLista"></div>
           <div id="resumenRuta"></div>
           <div class="acciones">
+            <button id="btnImportarGPX" type="button" title="Carga un archivo .gpx y lo trata como una ruta generada: reconoce las bajadas, numera los km y puedes seguirla">⬆ Importar GPX</button>
+            <input type="file" id="gpxInput" accept=".gpx,.xml,application/gpx+xml,text/xml,application/xml,application/octet-stream" hidden />
             <button id="btnBorrarTodo" type="button" class="peligro" title="Quita las bajadas, los puntos y la ruta generada">Limpiar ruta</button>
           </div>
           <details id="config">
@@ -988,7 +997,7 @@ function renderMiRuta() {
   cont.innerHTML = "";
   let nPun = 0;
   if (miRuta.length === 0) {
-    const v = document.createElement("div"); v.className = "vacio"; v.textContent = "Aún no hay nada en tu ruta. Descarga las bajadas, toca una en el mapa y pulsa «Añadir a mi ruta». También puedes añadir puntos tocando un hueco del mapa."; cont.appendChild(v);
+    const v = document.createElement("div"); v.className = "vacio"; v.textContent = "Aún no hay nada en tu ruta. Descarga las bajadas, toca una en el mapa y pulsa «Añadir a mi ruta». También puedes añadir puntos tocando un hueco del mapa o importar un archivo GPX."; cont.appendChild(v);
   } else {
     miRuta.forEach((id, i) => {
       const esP = esPunto(id);
@@ -1038,6 +1047,7 @@ function actualizarPopupBoton() {
 function actualizarUIPuntos() { actualizarBotonGenerar(); }
 // Se puede generar con al menos una bajada, o solo con puntos si hay dos o más
 function puedeGenerar() {
+  if (rutaGenerada) return true;   // ruta ya lista (generada o importada): el botón descarga el GPX
   const nPun = miRuta.filter(esPunto).length;
   return nPun >= 2 || miRuta.length - nPun >= 1;
 }
@@ -1349,7 +1359,7 @@ function incorporarBajada(b, enRuta) {
 }
 
 // manual = true cuando se pulsa el botón (avisa si no hay datos); si no, se llama sola al mover el mapa
-async function cargarZona(manual) {
+async function cargarZona(manual, bnds) {
   if (cargandoZona) { if (manual) toast("Ya se está cargando la zona…"); return; }
   cargandoZona = true;
   let prog = null;
@@ -1359,7 +1369,7 @@ async function cargarZona(manual) {
       if (manual) { const m = "No se han podido leer los datos de bajadas. Comprueba la conexión."; setEstado(m); toast(m); }
       return;
     }
-    const b = map.getBounds();
+    const b = bnds || map.getBounds();   // bnds: área concreta (importar GPX); si no, lo que se ve en el mapa
     const S = b.getSouth(), W = b.getWest(), N = b.getNorth(), E = b.getEast();
     const pend = [];
     let cubierta = false, demasiado = false;
@@ -1369,7 +1379,7 @@ async function cargarZona(manual) {
       cubierta = true;
       const f0 = Math.floor(Math.max(S, s) / G + 1e-9), f1 = Math.floor(Math.min(N, n) / G + 1e-9);
       const c0 = Math.floor(Math.max(W, w) / G + 1e-9), c1 = Math.floor(Math.min(E, e) / G + 1e-9);
-      if ((f1 - f0 + 1) * (c1 - c0 + 1) > MAX_CELDAS_VISTA) { demasiado = true; continue; }
+      if ((f1 - f0 + 1) * (c1 - c0 + 1) > (bnds ? 400 : MAX_CELDAS_VISTA)) { demasiado = true; continue; }
       for (let f = f0; f <= f1; f++) for (let c = c0; c <= c1; c++) {
         const nom = f + "_" + c, clave = z + "/" + nom;
         if (idx.celdas && nom in idx.celdas && !celdasCargadas.has(clave)) pend.push({ z, nom, clave });
@@ -2525,6 +2535,272 @@ function detenerSeguir() {
 }
 
 btnSeguir.addEventListener("click", () => { if (siguiendo) detenerSeguir(); else iniciarSeguir(); });
+
+// ---- Importar GPX: la ruta se reconstruye como si la hubiera generado la app ----
+// Se lee el track, se cargan las bajadas de la zona, se reconocen las que el track recorre (en su sentido)
+// y se monta el mismo resultado que genera BRouter: segmentos «bajada»/«enlace», perfil, marcas de km y modo seguir.
+const GPX_TOL_M = 30;          // distancia máxima entre el track y una bajada para darla por recorrida
+const GPX_COBERTURA = 0.85;    // parte mínima de la bajada que debe seguir el track
+const GPX_PASO_M = 10;         // el track se rellena para que no haya puntos separados más de esto
+const btnImportarGPX = document.getElementById("btnImportarGPX");
+const gpxInput = document.getElementById("gpxInput");
+
+function gpxMetros(lat1, lon1, lat2, lon2) {
+  const r = Math.PI / 180, dLat = (lat2 - lat1) * r, dLon = (lon2 - lon1) * r;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin(dLon / 2) ** 2;
+  return 2 * 6371008.8 * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
+// Devuelve [[lat, lon, ele|null], ...] con todos los tracks (o, si no hay, la ruta) del archivo
+function leerGPX(texto) {
+  const doc = new DOMParser().parseFromString(texto, "application/xml");
+  if (doc.getElementsByTagName("parsererror").length) throw new Error("El archivo no es un GPX válido.");
+  let nodos = [...doc.getElementsByTagName("trkpt")];
+  if (nodos.length < 2) nodos = [...doc.getElementsByTagName("rtept")];
+  const pts = [];
+  for (const n of nodos) {
+    const lat = parseFloat(n.getAttribute("lat")), lon = parseFloat(n.getAttribute("lon"));
+    if (!isFinite(lat) || !isFinite(lon)) continue;
+    const e = n.getElementsByTagName("ele")[0], ele = e ? parseFloat(e.textContent) : NaN;
+    pts.push([lat, lon, isFinite(ele) ? ele : null]);
+  }
+  const lim = [];   // quita los puntos casi repetidos (parado, GPS en reposo)
+  pts.forEach((p, i) => {
+    const q = lim[lim.length - 1];
+    if (!q || gpxMetros(q[0], q[1], p[0], p[1]) >= 3 || i === pts.length - 1) lim.push(p);
+  });
+  return lim;
+}
+
+// Track con un punto cada ≤10 m y distancia acumulada (así el emparejado no depende de cada cuánto grabó el GPS)
+function gpxDensificar(pts) {
+  const D = [{ lat: pts[0][0], lon: pts[0][1], ele: pts[0][2], d: 0 }];
+  let d = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i], L = gpxMetros(a[0], a[1], b[0], b[1]);
+    const n = (L > GPX_PASO_M && L <= 300) ? Math.ceil(L / GPX_PASO_M) : 1;   // un hueco grande no se rellena
+    for (let k = 1; k <= n; k++) {
+      const t = k / n; d += L / n;
+      D.push({
+        lat: a[0] + (b[0] - a[0]) * t, lon: a[1] + (b[1] - a[1]) * t,
+        ele: (a[2] === null || b[2] === null) ? (k === n ? b[2] : a[2]) : a[2] + (b[2] - a[2]) * t, d
+      });
+    }
+  }
+  return D;
+}
+
+// Rejilla en metros para buscar rápido qué puntos del track hay cerca de un sitio
+function gpxIndice(D) {
+  const lat0 = D[0].lat, lon0 = D[0].lon, kx = 111320 * Math.cos(lat0 * Math.PI / 180), ky = 111320, C = GPX_TOL_M;
+  const celdas = new Map();
+  D.forEach((p, i) => {
+    p.x = (p.lon - lon0) * kx; p.y = (p.lat - lat0) * ky;
+    const k = Math.floor(p.x / C) + "," + Math.floor(p.y / C);
+    let a = celdas.get(k); if (!a) celdas.set(k, a = []);
+    a.push(i);
+  });
+  const cerca = (x, y) => {   // índices del track a ≤ tolerancia, de menor a mayor
+    const cx = Math.floor(x / C), cy = Math.floor(y / C), r = [];
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+      const a = celdas.get((cx + dx) + "," + (cy + dy)); if (!a) continue;
+      for (const i of a) if (Math.hypot(D[i].x - x, D[i].y - y) <= C) r.push(i);
+    }
+    return r.sort((p, q) => p - q);
+  };
+  return { lat0, lon0, kx, ky, cerca };
+}
+
+function gpxVertices(coords, ix) {   // la bajada en metros, con un punto cada ≤20 m
+  const pr = c => ({ x: (c[0] - ix.lon0) * ix.kx, y: (c[1] - ix.lat0) * ix.ky });
+  let prev = pr(coords[0]), L = 0;
+  const V = [prev];
+  for (let i = 1; i < coords.length; i++) {
+    const q = pr(coords[i]), l = Math.hypot(q.x - prev.x, q.y - prev.y), n = Math.max(1, Math.ceil(l / 20));
+    for (let k = 1; k <= n; k++) V.push({ x: prev.x + (q.x - prev.x) * k / n, y: prev.y + (q.y - prev.y) * k / n });
+    L += l; prev = q;
+  }
+  return { V, L };
+}
+
+// Qué bajadas recorre el track: lo bastante pegado a ellas, de principio a fin y en su sentido de bajada
+function gpxEmparejar(D, ix, feats) {
+  let sMin = 90, nMax = -90, wMin = 180, eMax = -180;
+  D.forEach(p => { if (p.lat < sMin) sMin = p.lat; if (p.lat > nMax) nMax = p.lat; if (p.lon < wMin) wMin = p.lon; if (p.lon > eMax) eMax = p.lon; });
+  const m = 0.0006, res = [];
+  for (const f of feats) {
+    const c = f.geometry && f.geometry.coordinates;
+    if (!c || c.length < 2) continue;
+    let s0 = 90, n0 = -90, w0 = 180, e0 = -180;
+    for (const q of c) { if (q[1] < s0) s0 = q[1]; if (q[1] > n0) n0 = q[1]; if (q[0] < w0) w0 = q[0]; if (q[0] > e0) e0 = q[0]; }
+    if (n0 < sMin - m || s0 > nMax + m || e0 < wMin - m || w0 > eMax + m) continue;
+    const { V, L } = gpxVertices(c, ix);
+    if (L < 40) continue;
+    const n = V.length, cand = V.map(v => ix.cerca(v.x, v.y));
+    let k0 = -1;
+    for (let k = 0; k < Math.min(3, n); k++) if (cand[k].length) { k0 = k; break; }
+    if (k0 < 0) continue;
+    const inicios = []; let ult = -1e9;   // cada pasada del track por el inicio de la bajada
+    for (const i of cand[k0]) { if (i - ult > 15) inicios.push(i); ult = i; }
+    for (const s of inicios) {
+      let cur = s, ok = 1, fin = s;
+      for (let k = k0 + 1; k < n; k++) {
+        const arr = cand[k], dmin = D[cur].d - 20;
+        let lo = 0, hi = arr.length;
+        while (lo < hi) { const md = (lo + hi) >> 1; if (D[arr[md]].d < dmin) lo = md + 1; else hi = md; }
+        if (lo < arr.length && D[arr[lo]].d - D[cur].d <= 150) { cur = arr[lo]; ok++; fin = cur; }   // siempre hacia delante
+      }
+      const cob = ok / n, tramo = D[fin].d - D[s].d;
+      if (cob >= GPX_COBERTURA && tramo >= L * 0.6 && tramo <= L * 1.6) res.push({ f, s, e: fin, L, cob, score: ok / n * L });
+    }
+  }
+  // si dos coinciden en el mismo trozo (variantes, sub-tramos, duplicados) se queda la más larga
+  res.sort((a, b) => b.score - a.score);
+  const kept = [];
+  for (const r of res) {
+    let sol = 0;
+    for (const k of kept) sol += Math.max(0, Math.min(r.e, k.e) - Math.max(r.s, k.s));
+    if (sol <= 0.3 * (r.e - r.s)) kept.push(r);
+  }
+  kept.sort((a, b) => a.s - b.s);
+  let tope = 0;
+  for (const k of kept) { k.s = Math.max(k.s, tope); tope = Math.max(tope, k.e); }
+  return kept.filter(k => k.e - k.s >= 3);
+}
+
+function gpxStats(pts) {   // desnivel acumulado con la cota suavizada y un umbral de 3 m contra el ruido del GPS
+  const e = pts.map(p => p[2]);
+  if (e.every(v => v === null)) return { sube: null, baja: null };
+  let ult = null; const rell = e.map(v => (v === null ? ult : (ult = v)));
+  const first = rell.find(v => v !== null);
+  const lis = rell.map((v, i) => {
+    let s = 0, c = 0;
+    for (let j = Math.max(0, i - 2); j <= Math.min(rell.length - 1, i + 2); j++) { const w = rell[j] === null ? first : rell[j]; s += w; c++; }
+    return s / c;
+  });
+  let ref = lis[0], sube = 0, baja = 0;
+  for (const v of lis) { const d = v - ref; if (d >= 3) { sube += d; ref = v; } else if (d <= -3) { baja -= d; ref = v; } }
+  return { sube: Math.round(sube), baja: Math.round(baja) };
+}
+
+function gpxLongitud(puntos) {
+  let d = 0;
+  for (let i = 1; i < puntos.length; i++) d += gpxMetros(puntos[i - 1][0], puntos[i - 1][1], puntos[i][0], puntos[i][1]);
+  return d;
+}
+
+function gpxResumen(segs) {
+  const el = document.getElementById("resumenRuta");
+  const km = m => (m / 1000).toFixed(1).replace(".", ",");
+  let d = 0, n = 0, html = "";
+  segs.forEach((sg, i) => {
+    const largo = gpxLongitud(sg.puntos);
+    if (sg.tipo === "bajada") {
+      n++;
+      const e0 = sg.puntos[0][2], e1 = sg.puntos[sg.puntos.length - 1][2];
+      const caida = (e0 !== null && e1 !== null && e0 - e1 > 1) ? ` · ↓${Math.round(e0 - e1)} m` : "";
+      html += `<div class="imp-fila" data-i="${i}" title="Ver en el mapa"><i style="background:${sg.color}"></i><b>${n}.</b>`
+        + `<span class="nom">${esc(sg.nombre || "(sin nombre)")}</span><small>km ${km(d)} · ${fmtLong(Math.round(largo))}${caida}</small></div>`;
+    }
+    d += largo;
+  });
+  el.innerHTML = n
+    ? `<div class="imp-tit">GPX importado · ${n} bajada${n === 1 ? "" : "s"} en el recorrido</div>${html}`
+    : `<div class="imp-tit">GPX importado</div>No se ha reconocido ninguna bajada de la app en este recorrido.`;
+  el.onclick = (ev) => {
+    const fila = ev.target.closest(".imp-fila"); if (!fila || !rutaGenerada) return;
+    const sg = rutaGenerada.segmentos[+fila.dataset.i]; if (!sg) return;
+    const b = new maplibregl.LngLatBounds();
+    sg.puntos.forEach(p => b.extend([p[1], p[0]]));
+    setPanel(false);
+    map.fitBounds(b, { padding: 90, maxZoom: 17, duration: 600 });
+  };
+}
+
+let importandoGPX = false;
+async function importarGPX(file) {
+  if (importandoGPX) return;
+  importandoGPX = true; document.body.classList.add("importando");
+  try {
+    const texto = await file.text();
+    const pts = leerGPX(texto);
+    if (pts.length < 2) throw new Error("El GPX no contiene ningún track con puntos.");
+    if ((miRuta.length || rutaGenerada) && !confirm("Se sustituirá tu ruta actual por la del archivo GPX. ¿Continuar?")) return;
+    setPanel(false);
+
+    // 1) bajadas de la zona que cubre el track
+    let S = 90, N = -90, W = 180, E = -180;
+    pts.forEach(p => { if (p[0] < S) S = p[0]; if (p[0] > N) N = p[0]; if (p[1] < W) W = p[1]; if (p[1] > E) E = p[1]; });
+    const mg = 0.003;
+    setEstado("Cargando las bajadas de la zona del GPX…");
+    while (cargandoZona) await new Promise(r => setTimeout(r, 150));
+    await cargarZona(false, new maplibregl.LngLatBounds([W - mg, S - mg], [E + mg, N + mg]));
+
+    // 2) qué bajadas recorre
+    setEstado("Reconociendo las bajadas del recorrido…");
+    await new Promise(r => setTimeout(r, 30));   // deja pintar el aviso
+    const D = gpxDensificar(pts), ix = gpxIndice(D);
+    const incluirInferidas = !!(document.getElementById("modoAmplio") || {}).checked;
+    const candidatas = [...porId.values()].filter(f => !descartadas.has(idDe(f)) && (incluirInferidas || f.properties.origen !== "inferida"));
+    let kept = gpxEmparejar(D, ix, candidatas);
+    for (const k of kept) {   // el perfil de la bajada hace falta para tenerla en tu ruta
+      const p = k.f.properties;
+      if (!p.perfil_cargado && !p._precalc) { try { await asegurarPerfil(idDe(k.f)); } catch (e) {} }
+    }
+    kept = kept.filter(k => porId.has(idDe(k.f)));
+
+    // 3) la lista «Tus bajadas» (guardarMiRuta borra cualquier ruta anterior, por eso va antes de fijar la nueva)
+    miRuta.length = 0;
+    kept.forEach(k => { const id = idDe(k.f); if (!miRuta.includes(id)) miRuta.push(id); });
+    puntoInicio = null; puntoFin = null;
+    guardarMiRuta(); guardarPuntos();
+    renderMiRuta(); actualizarBotonesRuta(); actualizarPopupBoton(); deseleccionar();
+
+    // 4) segmentos como los de la ruta generada: enlace → bajada → enlace → …
+    const P = D.map(q => [q.lat, q.lon, q.ele]);
+    const segs = [];
+    let cur = 0;
+    for (const k of kept) {
+      if (k.s > cur) segs.push({ tipo: "enlace", nombre: null, puntos: P.slice(cur, k.s + 1), color: COLOR_RUTA });
+      segs.push({ tipo: "bajada", nombre: k.f.properties.nombre || "", puntos: P.slice(k.s, k.e + 1), color: colorDe(k.f.properties) });
+      cur = k.e;
+    }
+    if (cur < P.length - 1) segs.push({ tipo: "enlace", nombre: null, puntos: P.slice(cur), color: COLOR_RUTA });
+
+    const a = pts[0], z = pts[pts.length - 1];
+    document.getElementById("volverInicio").checked = gpxMetros(a[0], a[1], z[0], z[1]) < 150;
+    rutaGenerada = { gpx: texto, segmentos: segs, stats: gpxStats(pts), importada: true };
+    actualizarBotonGenerar();
+    dibujarRuta(segs);
+    mostrarPerfil(segs, rutaGenerada.stats, []);
+    document.getElementById("btnGenerar").textContent = "Descargar GPX";
+    mostrarBotonSeguir(true);
+    gpxResumen(segs);
+    actualizarPasos();
+    const nb = kept.length, km = (D[D.length - 1].d / 1000).toFixed(1).replace(".", ",");
+    setEstado(nb
+      ? `GPX importado: ${km} km y ${nb} bajada${nb === 1 ? "" : "s"} reconocida${nb === 1 ? "" : "s"}. Ya puedes seguir la ruta.`
+      : `GPX importado (${km} km), pero no coincide con ninguna bajada de la app. ¿Hay datos de bajadas en esa zona? Puedes seguirla igualmente.`);
+    toast(nb ? `✓ GPX importado · ${nb} bajada${nb === 1 ? "" : "s"}` : "GPX importado · sin bajadas reconocidas", 3000);
+  } catch (e) {
+    console.error("[gpx]", e);
+    setEstado("No se pudo importar el GPX: " + (e && e.message ? e.message : e));
+    toast("No se pudo importar el GPX", 3500);
+  } finally {
+    importandoGPX = false; document.body.classList.remove("importando");
+  }
+}
+
+btnImportarGPX.addEventListener("click", () => gpxInput.click());
+gpxInput.addEventListener("change", () => { const f = gpxInput.files && gpxInput.files[0]; gpxInput.value = ""; if (f) importarGPX(f); });
+// En escritorio también vale arrastrar el archivo sobre el mapa
+mapwrapEl.addEventListener("dragover", (e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes("Files")) e.preventDefault(); });
+mapwrapEl.addEventListener("drop", (e) => {
+  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (!f) return;
+  e.preventDefault();
+  if (/\.gpx$/i.test(f.name) || /xml|gpx/i.test(f.type)) importarGPX(f); else toast("Suelta un archivo .gpx");
+});
 
 // ---- Configuración: caché de bajadas ----
 const cfgEl = document.getElementById("config");
