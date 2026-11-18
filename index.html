@@ -382,6 +382,7 @@
   .cfg-fila select { flex: none; max-width: 150px; min-height: 36px; padding: 0 8px; border: 1.5px solid var(--brand); border-radius: 8px; background: var(--brand-soft); color: var(--ink); font-size: 13px; font-weight: 600; cursor: pointer; }
   .imp-tit { font-weight: 650; margin-bottom: 4px; }
   .imp-fila { display: flex; align-items: center; gap: 6px; padding: 4px 0; cursor: pointer; border-top: 1px solid #e6e9ed; }
+  .imp-diag { margin-top: 6px; padding: 6px 8px; border-radius: 6px; background: #fff6e0; color: #5b4a12; font-size: 12px; line-height: 1.35; }
   .imp-fila:first-of-type { border-top: 0; }
   .imp-fila i { flex: none; width: 10px; height: 10px; border-radius: 50%; }
   .imp-fila .nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2623,35 +2624,53 @@ function gpxVertices(coords, ix) {   // la bajada en metros, con un punto cada �
   return { V, L };
 }
 
-// Qué bajadas recorre el track: lo bastante pegado a ellas, de principio a fin y en su sentido de bajada
+// Qué bajadas recorre el track: lo bastante pegado a ellas, de principio a fin y en su sentido de bajada.
+// Devuelve las reconocidas; en .rechazadas las que pasan cerca del track pero no valen (con el motivo) y en .revisadas
+// cuántas bajadas de la app hay en el área del track.
 function gpxEmparejar(D, ix, feats) {
   let sMin = 90, nMax = -90, wMin = 180, eMax = -180;
   D.forEach(p => { if (p.lat < sMin) sMin = p.lat; if (p.lat > nMax) nMax = p.lat; if (p.lon < wMin) wMin = p.lon; if (p.lon > eMax) eMax = p.lon; });
-  const m = 0.0006, res = [];
+  const m = 0.0006, res = [], rech = [];
+  let revisadas = 0;
   for (const f of feats) {
     const c = f.geometry && f.geometry.coordinates;
     if (!c || c.length < 2) continue;
     let s0 = 90, n0 = -90, w0 = 180, e0 = -180;
     for (const q of c) { if (q[1] < s0) s0 = q[1]; if (q[1] > n0) n0 = q[1]; if (q[0] < w0) w0 = q[0]; if (q[0] > e0) e0 = q[0]; }
     if (n0 < sMin - m || s0 > nMax + m || e0 < wMin - m || w0 > eMax + m) continue;
+    revisadas++;
     const { V, L } = gpxVertices(c, ix);
     if (L < 40) continue;
     const n = V.length, cand = V.map(v => ix.cerca(v.x, v.y));
+    const cobAny = cand.filter(a => a.length).length / n;   // cuánto de la bajada toca el track, sin mirar orden ni sentido
+    if (cobAny < 0.3) continue;                              // pasa lejos: no merece ni diagnóstico
     let k0 = -1;
     for (let k = 0; k < Math.min(3, n); k++) if (cand[k].length) { k0 = k; break; }
-    if (k0 < 0) continue;
-    const inicios = []; let ult = -1e9;   // cada pasada del track por el inicio de la bajada
-    for (const i of cand[k0]) { if (i - ult > 15) inicios.push(i); ult = i; }
-    for (const s of inicios) {
-      let cur = s, ok = 1, fin = s;
-      for (let k = k0 + 1; k < n; k++) {
-        const arr = cand[k], dmin = D[cur].d - 20;
-        let lo = 0, hi = arr.length;
-        while (lo < hi) { const md = (lo + hi) >> 1; if (D[arr[md]].d < dmin) lo = md + 1; else hi = md; }
-        if (lo < arr.length && D[arr[lo]].d - D[cur].d <= 150) { cur = arr[lo]; ok++; fin = cur; }   // siempre hacia delante
+    let aceptada = false, mejorCob = 0, tramoMal = false;
+    if (k0 >= 0) {
+      const inicios = []; let ult = -1e9;   // cada pasada del track por el inicio de la bajada
+      for (const i of cand[k0]) { if (i - ult > 15) inicios.push(i); ult = i; }
+      for (const s of inicios) {
+        let cur = s, ok = 1, fin = s;
+        for (let k = k0 + 1; k < n; k++) {
+          const arr = cand[k], dmin = D[cur].d - 20;
+          let lo = 0, hi = arr.length;
+          while (lo < hi) { const md = (lo + hi) >> 1; if (D[arr[md]].d < dmin) lo = md + 1; else hi = md; }
+          if (lo < arr.length && D[arr[lo]].d - D[cur].d <= 150) { if (arr[lo] > cur) cur = arr[lo]; ok++; fin = cur; }   // siempre hacia delante: nunca retrocede
+        }
+        const cob = ok / n, tramo = D[fin].d - D[s].d;
+        mejorCob = Math.max(mejorCob, cob);
+        if (cob >= GPX_COBERTURA && tramo >= L * 0.6 && tramo <= L * 1.6) { aceptada = true; res.push({ f, s, e: fin, L, cob, score: cob * L }); }
+        else if (cob >= GPX_COBERTURA) tramoMal = true;
       }
-      const cob = ok / n, tramo = D[fin].d - D[s].d;
-      if (cob >= GPX_COBERTURA && tramo >= L * 0.6 && tramo <= L * 1.6) res.push({ f, s, e: fin, L, cob, score: ok / n * L });
+    }
+    if (!aceptada) {
+      let motivo;
+      if (k0 < 0) motivo = "el track no pasa por su inicio";
+      else if (tramoMal) motivo = "el track la toca pero con un recorrido distinto";
+      else if (cobAny >= GPX_COBERTURA) motivo = "el track pasa por ella pero no de principio a fin en su sentido (¿al revés?)";
+      else motivo = `el track solo sigue un ${Math.round(Math.max(mejorCob, 0) * 100)} % de su trazado`;
+      rech.push({ f, motivo, cobAny });
     }
   }
   // si dos coinciden en el mismo trozo (variantes, sub-tramos, duplicados) se queda la más larga
@@ -2665,7 +2684,35 @@ function gpxEmparejar(D, ix, feats) {
   kept.sort((a, b) => a.s - b.s);
   let tope = 0;
   for (const k of kept) { k.s = Math.max(k.s, tope); tope = Math.max(tope, k.e); }
-  return kept.filter(k => k.e - k.s >= 3);
+  const fin = kept.filter(k => k.e - k.s >= 3);
+  const ids = new Set(fin.map(k => k.f));
+  fin.rechazadas = rech.filter(r => !ids.has(r.f)).sort((a, b) => b.cobAny - a.cobAny);
+  fin.revisadas = revisadas;
+  return fin;
+}
+
+// ¿Hay datos de bajadas en las celdas de 0,1° que toca el track? (lo más habitual cuando «no sale nada»)
+function gpxDiagDatos(pts) {
+  const G = 0.1, cel = new Set();
+  pts.forEach(p => cel.add(Math.floor(p[0] / G + 1e-9) + "_" + Math.floor(p[1] / G + 1e-9)));
+  const sin = [], fuera = [];
+  for (const nom of cel) {
+    const [f, c] = nom.split("_").map(Number), lat = (f + 0.5) * G, lon = (c + 0.5) * G;
+    let dentro = false, hay = false;
+    for (const [, idx] of zonasDatos) {
+      const [s, w, n, e] = idx.bbox;
+      if (lat >= s && lat <= n && lon >= w && lon <= e) { dentro = true; if (idx.celdas && nom in idx.celdas) hay = true; }
+    }
+    if (!hay) (dentro ? sin : fuera).push(nom);
+  }
+  return { sin, fuera };
+}
+
+function gpxAvisoDatos(dg) {
+  const partes = [];
+  if (dg.fuera.length) partes.push(`las celdas ${dg.fuera.join(", ")} están fuera de las zonas generadas`);
+  if (dg.sin.length) partes.push(`las celdas ${dg.sin.join(", ")} están en una zona generada pero no contienen ninguna bajada`);
+  return partes.length ? "Sin datos de bajadas: " + partes.join(" y ") + "." : "";
 }
 
 function gpxStats(pts) {   // desnivel acumulado con la cota suavizada y un umbral de 3 m contra el ruido del GPS
@@ -2689,7 +2736,7 @@ function gpxLongitud(puntos) {
   return d;
 }
 
-function gpxResumen(segs) {
+function gpxResumen(segs, diag) {
   const el = document.getElementById("resumenRuta");
   const km = m => (m / 1000).toFixed(1).replace(".", ",");
   let d = 0, n = 0, html = "";
@@ -2704,9 +2751,21 @@ function gpxResumen(segs) {
     }
     d += largo;
   });
-  el.innerHTML = n
+  html = n
     ? `<div class="imp-tit">GPX importado · ${n} bajada${n === 1 ? "" : "s"} en el recorrido</div>${html}`
     : `<div class="imp-tit">GPX importado</div>No se ha reconocido ninguna bajada de la app en este recorrido.`;
+  if (diag) {
+    const aviso = gpxAvisoDatos(diag.datos);
+    if (aviso) html += `<div class="imp-diag">⚠ ${esc(aviso)}</div>`;
+    else if (!n) html += `<div class="imp-diag">Hay ${diag.revisadas} bajada${diag.revisadas === 1 ? "" : "s"} de la app en el área del track.</div>`;
+    const rech = diag.rechazadas.slice(0, 6);
+    if (rech.length) {
+      html += `<div class="imp-diag"><b>Cerca del track pero no reconocidas:</b>`
+        + rech.map(r => `<div>· ${esc(r.f.properties.nombre || ("sin nombre · " + idDe(r.f)))} — ${esc(r.motivo)}</div>`).join("")
+        + (diag.rechazadas.length > 6 ? `<div>· … y ${diag.rechazadas.length - 6} más</div>` : "") + `</div>`;
+    }
+  }
+  el.innerHTML = html;
   el.onclick = (ev) => {
     const fila = ev.target.closest(".imp-fila"); if (!fila || !rutaGenerada) return;
     const sg = rutaGenerada.segmentos[+fila.dataset.i]; if (!sg) return;
@@ -2780,12 +2839,13 @@ async function importarGPX(file) {
     mostrarPerfil(segs, rutaGenerada.stats, [{ punto: true, lat: pts[0][0], lon: pts[0][1], nombre: lugarSalida ? `Punto 1 · ${lugarSalida}` : "Punto 1" }]);
     document.getElementById("btnGenerar").textContent = "Descargar GPX";
     mostrarBotonSeguir(true);
-    gpxResumen(segs);
+    const diag = { datos: gpxDiagDatos(pts), rechazadas: kept.rechazadas || [], revisadas: kept.revisadas || 0 };
+    gpxResumen(segs, diag);
     actualizarPasos();
     const nb = kept.length, km = (D[D.length - 1].d / 1000).toFixed(1).replace(".", ",");
     setEstado(nb
       ? `GPX importado: ${km} km y ${nb} bajada${nb === 1 ? "" : "s"} reconocida${nb === 1 ? "" : "s"}. Ya puedes seguir la ruta.`
-      : `GPX importado (${km} km), pero no coincide con ninguna bajada de la app. ¿Hay datos de bajadas en esa zona? Puedes seguirla igualmente.`);
+      : `GPX importado (${km} km), pero no coincide con ninguna bajada de la app. ${gpxAvisoDatos(diag.datos) || ("Hay " + diag.revisadas + " bajadas en el área del track; mira el detalle en el panel.")} Puedes seguirla igualmente.`);
     toast(nb ? `✓ GPX importado · ${nb} bajada${nb === 1 ? "" : "s"}` : "GPX importado · sin bajadas reconocidas", 3000);
   } catch (e) {
     console.error("[gpx]", e);
