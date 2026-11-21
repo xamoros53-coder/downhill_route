@@ -125,15 +125,17 @@ function iniciarSeguir() {
 function detenerSeguir() {
   if (!siguiendo && !btnSeguir.classList.contains("activo")) return;
   siguiendo = false; seguirUlt = null; seguirPts = null; textoSeguir = "";
-  clearTimeout(ubic.pausaT);
+  try { clearTimeout(ubic.pausaT); } catch (e) {}
   document.body.classList.remove("modo-seguir");
-  ubic.detener();
-  btnSeguir.classList.remove("activo"); btnSeguir.textContent = "▶ Seguir ruta";
-  actualizarYoPerfil(); actualizarBotonesPerfil();
+  btnSeguir.classList.remove("activo"); btnSeguir.textContent = "▶ Seguir ruta";   // se restaura el botón antes que nada
+  try { ubic.detener(); } catch (e) { console.error(e); }
+  try { if (map.getBearing() !== 0 || map.getPitch() !== 0) map.easeTo({ bearing: 0, pitch: 0, duration: 300 }); } catch (e) {}   // vuelve a norte arriba
+  try { actualizarYoPerfil(); actualizarBotonesPerfil(); } catch (e) { console.error(e); }
   const info = document.getElementById("perfilInfo"); if (info) info.textContent = "";
   try { if (wakeLock) wakeLock.release(); } catch (e) {}
   wakeLock = null;
+  [0, 260].forEach(ms => setTimeout(() => map.resize(), ms));   // la barra del panel cambia de alto al salir del modo seguir
 }
 
-btnSeguir.addEventListener("click", () => { if (siguiendo) detenerSeguir(); else iniciarSeguir(); });
+btnSeguir.addEventListener("click", () => { if (siguiendo) { detenerSeguir(); setPanel(false); } else iniciarSeguir(); });   // al parar: mismo estado que justo después de generar la ruta
 

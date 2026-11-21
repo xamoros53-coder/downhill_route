@@ -495,3 +495,34 @@
   /* --- Botón para reabrir el perfil --- */
   #btnPerfilVer { display: none; align-items: center; gap: 6px; }
   #mapwrap.hayPerfil:not(.conPerfil):not(.conFicha) #btnPerfilVer { display: flex; }
+
+  /* ===== Asa del panel con flecha (móvil) =====
+     Sustituye la barrita por un chevron: ︿ = desliza/toca para abrir, ﹀ = para cerrar. No añade altura. */
+  @media (max-width: 720px) {
+    body:not(.modo-seguir) #btnPanelToggle .pill {
+      top: 7px; width: 40px; height: 13px; border-radius: 0;
+      background: var(--brand); opacity: .9;
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 13'%3E%3Cpath d='M5 10l15-7 15 7' fill='none' stroke='black' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+              mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 13'%3E%3Cpath d='M5 10l15-7 15 7' fill='none' stroke='black' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+    }
+    body:not(.modo-seguir) #miRuta.abierto #btnPanelToggle .pill { transform: translateX(-50%) scaleY(-1); }
+    /* el área táctil ampliada del asa solo cubre el asa, nunca el resto de la barra */
+    #btnPanelToggle .pill { position: relative; }
+    body:not(.modo-seguir) #btnPanelToggle .pill { position: absolute; }
+    #btnPanelToggle .pill::before { inset: -8px -30px; }
+  }
+
+  /* ===== Buscar: solo lupa; el chip de senderos sin etiqueta sube a su lado ===== */
+  #busquedaWrap #btnBuscarToggle { width: 44px; height: 44px; border-radius: 22px; padding: 0; justify-content: center; gap: 0; }
+  #busquedaWrap #btnBuscarToggle span { display: none; }
+  #mapwrap #zonaBox { top: 12px; left: 64px; max-width: calc(100% - 64px - 58px); }
+  @media (max-width: 720px) {
+    #mapwrap #zonaBox { top: 10px; left: 62px; max-width: calc(100% - 62px - 58px); }
+    #mapwrap .zona-opcion { font-size: 12.5px; line-height: 1.15; padding: 0 12px 0 10px; gap: 6px; }
+  }
+
+  /* ===== Etiqueta «Modo de enrutamiento» sobre los botones de modo ===== */
+  .tipo-fila { flex-direction: column; align-items: stretch; gap: 4px; }
+  .ctl-ruta .tipo-fila { flex-wrap: nowrap; }
+  .lbl-modo { font-size: 12px; font-weight: 700; color: #5a6a61; letter-spacing: .02em; padding-left: 2px; }
+  body.modo-seguir .lbl-modo { display: none; }

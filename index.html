@@ -54,7 +54,8 @@
         <div class="ctl-ruta">
           <label class="check" for="volverInicio"><input type="checkbox" id="volverInicio" checked />Ruta circular</label>
           <div class="tipo-fila">
-            <div class="seg" id="segModo" role="group" aria-label="Modo de enrutamiento">
+            <span class="lbl-modo" id="lblModo">Modo de enrutamiento</span>
+            <div class="seg" id="segModo" role="group" aria-labelledby="lblModo">
               <button type="button" data-v="trekking" title="Equilibrado: mezcla pistas y caminos con poco tráfico">Trekking</button>
               <button type="button" data-v="safety" title="Evita carreteras con tráfico, aunque dé más vuelta">Safety</button>
               <button type="button" data-v="mtb" title="Prefiere caminos, pistas y senderos: más divertido, más lento y técnico">MTB</button>
