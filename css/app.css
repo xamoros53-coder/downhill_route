@@ -387,7 +387,6 @@
   /* ===== Botón para reabrir el perfil de altimetría ===== */
   #btnPerfilVer { display: none; position: absolute; right: 10px; bottom: calc(var(--base) + var(--pasosH) + 10px); z-index: 9; height: 36px; padding: 0 14px; border: 0; border-radius: 18px; background: var(--brand); color: #fff; font-size: 13px; font-weight: 700; box-shadow: 0 2px 10px rgba(0,0,0,.3); cursor: pointer; }
   #mapwrap.hayPerfil:not(.conPerfil):not(.conFicha) #btnPerfilVer { display: block; }
-  body.modo-seguir #btnPerfilVer { display: none !important; }
   #avisoAmplio { display: flex; align-items: flex-start; gap: 6px; }
   #avisoAmplio[hidden] { display: none; }
   #avisoAmplio span { flex: 1; min-width: 0; }
@@ -552,4 +551,19 @@
     /* generar / seguir más bajos */
     #botonesRuta #btnGenerar, #botonesRuta #btnSeguir { min-height: 44px; font-size: 15px; border-radius: 12px; }
     #estadoRuta { padding: 4px 14px; line-height: 1.25; }
+  }
+
+  /* ===== Siguiendo la ruta (móvil): el asa del panel sigue siendo cómoda de tocar y de arrastrar ===== */
+  @media (max-width: 720px) {
+    body.modo-seguir #barraRuta { padding-top: 20px !important; }
+    body.modo-seguir #barraRuta #btnPanelToggle {
+      position: absolute; top: 0; left: 0; right: 0; height: 22px; min-height: 0; display: block; padding: 0; background: none; border-radius: 0;
+    }
+    body.modo-seguir #btnPanelToggle .pill {
+      position: absolute; top: 5px; left: 50%; transform: translateX(-50%); width: 40px; height: 13px; border-radius: 0;
+      background: var(--brand); opacity: .9;
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 13'%3E%3Cpath d='M5 10l15-7 15 7' fill='none' stroke='black' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+              mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 13'%3E%3Cpath d='M5 10l15-7 15 7' fill='none' stroke='black' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+    }
+    body.modo-seguir #miRuta.abierto #btnPanelToggle .pill { transform: translateX(-50%) scaleY(-1); }
   }
