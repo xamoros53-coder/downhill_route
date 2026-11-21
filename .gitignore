@@ -3,4 +3,3 @@ node_modules/
 *.log
 .env
 tools/generador/cache/
-*.pbf
