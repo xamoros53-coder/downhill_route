@@ -526,3 +526,30 @@
   .ctl-ruta .tipo-fila { flex-wrap: nowrap; }
   .lbl-modo { font-size: 12px; font-weight: 700; color: #5a6a61; letter-spacing: .02em; padding-left: 2px; }
   body.modo-seguir .lbl-modo { display: none; }
+
+  /* ===== Panel inferior compacto en móvil (más sitio para el mapa) =====
+     Fila 1: «Modo de enrutamiento» + «Ruta circular»; fila 2: modos; fila 3: botones.
+     Se quita el texto «Tu ruta / N bajadas»: el asa (flecha) sigue abriendo la lista. */
+  @media (max-width: 720px) {
+    body:not(.modo-seguir) #barraRuta {
+      padding: 22px 14px 10px !important; gap: 6px 12px; grid-template-columns: 1fr auto;
+    }
+    /* el asa pasa a ser una franja fina arriba, fuera del flujo */
+    body:not(.modo-seguir) #barraRuta #btnPanelToggle {
+      position: absolute; top: 0; left: 0; right: 0; height: 24px; display: block; padding: 0; background: none; border-radius: 0;
+    }
+    body:not(.modo-seguir) #btnPanelToggle .fila-toggle { display: none; }
+    /* la etiqueta y la casilla comparten fila */
+    body:not(.modo-seguir) #barraRuta .ctl-ruta .tipo-fila { display: contents; }
+    body:not(.modo-seguir) #barraRuta .lbl-modo { grid-column: 1; grid-row: 1; align-self: center; font-size: 13px; }
+    body:not(.modo-seguir) #barraRuta .ctl-ruta .check { grid-column: 2; grid-row: 1; min-height: 32px; }
+    body:not(.modo-seguir) #barraRuta #segModo { grid-column: 1 / -1; grid-row: 2; }
+    body:not(.modo-seguir) #barraRuta #botonesRuta { grid-column: 1 / -1; grid-row: 3; }
+
+    /* botones de modo más bajos */
+    .seg { padding: 3px; border-radius: 10px; }
+    .seg button { height: 30px; font-size: 12.5px; border-radius: 8px; }
+    /* generar / seguir más bajos */
+    #botonesRuta #btnGenerar, #botonesRuta #btnSeguir { min-height: 44px; font-size: 15px; border-radius: 12px; }
+    #estadoRuta { padding: 4px 14px; line-height: 1.25; }
+  }
