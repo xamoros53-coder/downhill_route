@@ -104,6 +104,13 @@
               <button id="cfgLimpiar" type="button" title="Borra la caché de bajadas (se conservan las de tu ruta). Se volverán a cargar solas al mover el mapa">Vaciar caché</button>
             </div>
             <div class="cfg-fila">
+              <div class="txt">Curvas de nivel<small>Líneas de altitud sobre el mapa y el satélite (desde zoom 11)</small></div>
+              <select id="cfgCurvas" aria-label="Mostrar curvas de nivel">
+                <option value="on">Mostrar</option>
+                <option value="off">Ocultar</option>
+              </select>
+            </div>
+            <div class="cfg-fila">
               <div class="txt">Orientación del mapa<small>Al seguir la ruta: norte siempre arriba, o el mapa gira hacia donde avanzas</small></div>
               <select id="cfgOrient" aria-label="Orientación del mapa al seguir la ruta">
                 <option value="norte">Norte arriba</option>
@@ -119,6 +126,7 @@
 
 <script src="./js/00-config.js"></script>
 <script src="./lib/maplibre-gl.js"></script>
+<script src="./lib/maplibre-contour.min.js"></script>
 <script src="./js/routing.js"></script>
 <script src="./js/01-mapa.js"></script>
 <script src="./js/02-ubicacion.js"></script>

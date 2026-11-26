@@ -23,11 +23,27 @@ const baseControl = new BaseMapaControl();
 function ponerBase(sat) {
   baseSat = sat;
   if (!asegurarSat()) { baseSat = !sat; return; }
-  map.setLayoutProperty("sat", "visibility", sat ? "visible" : "none");
+  SAT_IDS.forEach(id => map.setLayoutProperty(id, "visibility", sat ? "visible" : "none"));
   baseControl.refrescar();
+  try { colorRelieve(); ordenarRelieve(); } catch (e) {}   // curvas y picos cambian de color según la base
   try { localStorage.setItem("baseMapa", sat ? "sat" : "osm"); } catch (e) {}
 }
 map.addControl(baseControl, "top-right");
+
+// Curvas de nivel: se activan o desactivan desde Configuración (select #cfgCurvas), para dejar el mapa limpio
+function ponerCurvas(on) {
+  verCurvas = on;
+  ["curvas", "curvas-label"].forEach(id => { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none"); });
+  try { localStorage.setItem("curvas", on ? "on" : "off"); } catch (e) {}
+}
+(function () {
+  const sel = document.getElementById("cfgCurvas");
+  if (!sel) return;
+  const fila = sel.closest(".cfg-fila");
+  if (!demContour) { if (fila) fila.hidden = true; return; }   // sin el plugin no hay curvas: no se muestra la opción
+  sel.value = verCurvas ? "on" : "off";
+  sel.addEventListener("change", () => ponerCurvas(sel.value === "on"));
+})();
 
 // Botón 3D: activa el relieve (terreno) e inclina el mapa. Elevación: AWS Terrain Tiles (gratuito, sin clave)
 let en3D = false;
