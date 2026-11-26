@@ -2,7 +2,7 @@
 // ---- Datos precalculados: los genera generar.py (salida/<zona>/indice.json + celdas/<fila>_<col>.json) ----
 // La app solo descarga las celdas (~11 km) que cubre el mapa visible; cada celda ya trae sentido, perfil y dificultad.
 const DATOS_BASE = APP_CONFIG.DATOS_BASE;   // carpeta con los datos, relativa a index.html (en producción: "salida")
-const DATOS_ZONAS = ["cataluna","huesca","pirineo_frances"];        // zonas disponibles (una carpeta por zona dentro de DATOS_BASE)
+const DATOS_ZONAS = ["cataluna","huesca","pirineo_frances","teruel"];        // zonas disponibles (una carpeta por zona dentro de DATOS_BASE)
 const MAX_CELDAS_VISTA = 60;            // con el mapa muy alejado no se cargan celdas
 const zonasDatos = new Map();           // zona -> indice.json
 const celdasCargadas = new Set();       // "zona/fila_col"
