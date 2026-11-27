@@ -15,6 +15,14 @@ window.APP_CONFIG = {
 window.APP_VERSION = "datos-v3-pirineos-es-fr";
 console.log("[app] index.html versión", window.APP_VERSION);
 document.title = document.title + " · " + window.APP_VERSION;
-// Quita service workers y cachés de versiones anteriores (si los hubiera) para ver siempre esta versión
-if (navigator.serviceWorker) navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => { console.log("[app] service worker eliminado", r.scope); r.unregister(); })).catch(() => {});
-if (window.caches) caches.keys().then(ks => ks.forEach(k => { console.log("[app] caché eliminada", k); caches.delete(k); })).catch(() => {});
+// Service worker (sw.js): permite abrir la app sin cobertura. Para desarrollar sin él, abre la app con ?sinsw al final de la dirección
+if ("serviceWorker" in navigator) {
+  if (/[?&]sinsw\b/.test(location.search)) {
+    navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => { console.log("[app] service worker eliminado", r.scope); r.unregister(); })).catch(() => {});
+    if (window.caches) caches.keys().then(ks => ks.forEach(k => { console.log("[app] caché eliminada", k); caches.delete(k); })).catch(() => {});
+  } else {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").then(r => console.log("[app] service worker activo", r.scope)).catch(e => console.warn("[app] no se pudo registrar el service worker", e));
+    });
+  }
+}

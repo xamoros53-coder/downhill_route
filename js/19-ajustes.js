@@ -55,3 +55,22 @@ document.getElementById("cfgLimpiar").addEventListener("click", async () => {
   setEstado(`${n} bajada${n === 1 ? "" : "s"} borrada${n === 1 ? "" : "s"} de la caché. Mueve el mapa para volver a cargarlas.`);
   actualizarConfig();
 });
+
+// ---- Mapa guardado para uso sin conexión (lo gestiona sw.js: el mapa y el relieve que ya has visto) ----
+async function infoMapaGuardado() {
+  const el = document.getElementById("cfgMapaInfo");
+  if (!el) return;
+  try {
+    if (!window.caches) { el.textContent = "No disponible en este navegador"; return; }
+    let n = 0;
+    for (const k of (await caches.keys()).filter(k => k.startsWith("ride-mapa-"))) n += (await (await caches.open(k)).keys()).length;
+    el.textContent = n ? `${n.toLocaleString("es-ES")} trozos de mapa guardados` : "Aún no hay mapa guardado: se guarda lo que ves con conexión";
+  } catch (e) { el.textContent = ""; }
+}
+cfgEl.addEventListener("toggle", () => { if (cfgEl.open) infoMapaGuardado(); });
+document.getElementById("cfgLimpiarMapa").addEventListener("click", async () => {
+  if (!window.caches || !confirm("¿Borrar el mapa guardado para usar sin conexión? Se vuelve a guardar solo al verlo con cobertura.")) return;
+  for (const k of (await caches.keys()).filter(k => k.startsWith("ride-mapa-"))) await caches.delete(k);
+  setEstado("Mapa guardado borrado.");
+  infoMapaGuardado();
+});
